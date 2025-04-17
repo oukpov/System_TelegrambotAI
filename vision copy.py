@@ -4,24 +4,84 @@ import os
 import requests
 import base64
 import re
-
-BOT_TOKEN = "TOKEN"
-API_KEY = "KEY"
-
+import logging
+import hashlib
 BOT_TOKEN = "7669003420:AAGKhS6k8bTDxzNQR3_6cmnRPSkEgA8Xt0s"
 API_KEY = "AIzaSyAwuW-TTjKqYG7c-BSg_AquN37gv5Ia8OA"
-# Bank list (name, code)
-BANK_OPTIONS = [
-    ("ABA Bank", "1"),
-    ("Sathapana Bank", "2"),
-    ("Bride Bank", "3"),
-    ("Wing Bank", "4"),
-]
-BANKS = {code: name for name, code in BANK_OPTIONS}
+
+# Setup logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Folder to save images
 SAVE_FOLDER = "images"
 os.makedirs(SAVE_FOLDER, exist_ok=True)
+
+
+def fetch_bank_data(chatID):
+    print(f'Chat ID : {chatID}')
+    url = "https://oukpov.store/gtkn_project/public/api/list/bank"
+    try:
+        response = requests.post(url)
+        response.raise_for_status()
+        if response.status_code == 200:
+            data = response.json()
+            return data
+        else:
+            logger.error(
+                f"Failed to fetch bank data. Status Code: {response.status_code}")
+            return []
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching bank data: {e}")
+        return []
+
+
+def calculateAmount(bank_id, bank_name, amount, name, currency, group_id, group_name):
+    bank_id = int(bank_id)
+    if bank_id == 1:
+        url = "calculate/amount"
+    else:
+        url = "calculate/amount/thailand"
+        print(f'======> ({bank_id}) : 2')
+
+    params = {
+        "bank_name": bank_name,
+        "bank_id": bank_id,
+        "amount": amount,
+        "name": name,
+        "currency": currency,
+        "group_id": group_id,
+        "group_name": group_name
+    }
+
+    try:
+        response = requests.post(
+            f"https://oukpov.store/gtkn_project/public/api/{url}", params=params, json={})
+        response.raise_for_status()  # Raises HTTPError for bad responses
+        labels_field = response.json()
+        # print(f"====> {labels_field}")
+        return labels_field  # Return actual data
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching data: {e}")
+        return None
+
+
+def generate_bank_options(data):
+    # Convert the fetched data into the required format for BANK_OPTIONS
+    bank_options = [(item['bank_name'], str(item['bank_id'])) for item in data]
+    logger.info(f"Generated bank options: {bank_options}")
+    return bank_options
+
+
+# Fetch bank data and generate options dynamically
+data = None
+BANK_OPTIONS = generate_bank_options(data)
+BANKS = {code: name for name, code in BANK_OPTIONS}
+# data = fetch_bank_data()
+# BANK_OPTIONS = generate_bank_options(data)
+# BANKS = {code: name for name, code in BANK_OPTIONS}
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -34,22 +94,30 @@ async def show_bank_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [[InlineKeyboardButton(name, callback_data=code)]
                 for name, code in BANK_OPTIONS]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("*Please choose a BANK*", reply_markup=reply_markup,  parse_mode="Markdown")
+    await update.message.reply_text("*Please choose a BANK*", reply_markup=reply_markup, parse_mode="Markdown")
 
 # Photo handler triggers the options
 
 
+processed_files = set()  # Define this globally at the top of your script
+
+
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Save photo file info to context
-    photo = update.message.photo[-1]
-    file_id = photo.file_id
-    context.user_data['photo_file_id'] = file_id  # Save file_id in context
-    # Save full message in context
-    context.user_data['message'] = update.message
+    message = update.message
+    photo = message.photo[-1]
+    file_unique_id = photo.file_unique_id
 
-    await show_bank_options(update, context)
+    # === Check if this image has already been processed
+    if file_unique_id in processed_files:
+        logger.info(f"⚠️ Image already processed: {file_unique_id}")
+        await message.reply_text("⚠️ This Payslips has already been processed.")
+        return
 
-# Handle bank button click
+    # Otherwise, store info and continue
+    context.user_data['photo_file_id'] = photo.file_id
+    context.user_data['message'] = message
+
+    await show_bank_options(update, context)  # Show the buttons
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -59,78 +127,125 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bank_code = query.data
     bank_name = BANKS.get(bank_code, "Unknown")
 
-    # await query.edit_message_text(
-    #     text=f"🏦 *{bank_name}*\nPlease wait while we process your Payslip...",
-    #     parse_mode="Markdown"
-    # )
-
-    # Process saved image
-    if 'photo_file_id' in context.user_data and 'message' in context.user_data:
-        # Save bank selection if needed
-        context.user_data['bank_code'] = bank_code
-        await calculate(context.user_data['message'], context)
-    else:
+    # Check if message and photo exist
+    if 'message' not in context.user_data or not context.user_data['message'].photo:
         await query.message.reply_text("❗ No image found to process.")
+        return
+
+    message = context.user_data['message']
+    photo = message.photo[-1]  # Highest resolution
+    print(f'message : {message.chat.id}')
+    data = fetch_bank_data(message.chat.id)
+    # Check for duplicate processing
+    if photo.file_unique_id in processed_files:
+        logger.info(
+            f"⚠️ OCR already extracted for this image: {photo.file_unique_id}")
+        await query.edit_message_text(
+            text="⚠️ This PlaySlips has already been processed.",
+            parse_mode="Markdown"
+        )
+        return
+    else:
+        processed_files.add(photo.file_unique_id)
+
+    # Confirm bank selection
+    await query.edit_message_text(
+        text=f"✅ *{bank_name}*",
+        parse_mode="Markdown"
+    )
+
+    # Save selected bank
+    context.user_data['bank_code'] = bank_code
+    context.user_data['bank_name'] = bank_name
+
+    # Call calculate function
+    await calculate(message, context, bank_code, bank_name)
+
 
 # ========================= Field Extractor =========================
 
+def extract_field_thai(text, bank_name, bank_id, groupID, groupName):
+    matches = re.findall(r'\b\d+\.\d{2}\b', text)
 
-def extract_fields_by_order(text):
-    labels = [
-        "Trx. ID", "From account", "Original amount",
-        "Reference #", "Sender", "To account", "Transaction date"
-    ]
-    lines = [line.strip() for line in text.strip().split('\n') if line.strip()]
-    label_indices = [i for i, line in enumerate(
-        lines) if any(label in line for label in labels)]
+    # Convert appropriately
+    def convert_amount(value):
+        num = float(value)
+        if num == 0:
+            return None
+        return int(num) if num.is_integer() else num
 
-    if not label_indices:
-        return {"error": "Labels not found"}
+    # Get the first valid amount
+    amount = next((convert_amount(m)
+                  for m in matches if convert_amount(m) is not None), None)
+    # print(amount)
+    calculateAmount(bank_id, bank_name, amount,
+                    "None", 'bat', groupID, groupName)
 
-    value_start_index = label_indices[-1] + 1
-    values = lines[value_start_index:]
 
-    field_data = {}
-    field_values = []
+def extract_fields_Khmer(text, bank_name, bank_id, groupID, groupName):
+    amount_pattern = r'-?[\d,]+\.\d{2}\s*(KHR|USD)'
+    amount_match = re.search(amount_pattern, text)
 
-    current_value = []
-    for val in values:
-        current_value.append(val)
-        if len(field_values) < len(labels) - 1:
-            field_values.append(' '.join(current_value).strip())
-            current_value = []
-    if current_value:
-        field_values.append(' '.join(current_value).strip())
+    # Regex to find named transfer line
+    named_line_pattern = r'^(?:Transfer to|Received from)\s+(.+)$'
 
-    for i, label in enumerate(labels):
-        field_data[label] = field_values[i] if i < len(
-            field_values) else "Not found"
+    # Init
+    name = None
 
-    return field_data
+    if amount_match:
+        amount_full = amount_match.group()
+        amount_clean = amount_full.replace(',', '')
+        currency = amount_match.group(1).lower()
+        # print(f"✅ ==> First amount: {amount_clean}")
+        # print(f"✅ ==> Currency: {currency}")
+
+        # Try to find "Transfer to" or "Received from"
+        named_match = re.search(named_line_pattern, text, re.MULTILINE)
+        if named_match:
+            name = named_match.group(1).strip()
+        else:
+            # Fallback: get the line after the amount
+            lines = text.splitlines()
+            for i, line in enumerate(lines):
+                if amount_full in line:
+                    # Check next non-empty line
+                    for j in range(i + 1, len(lines)):
+                        next_line = lines[j].strip()
+                        if next_line:
+                            name = next_line
+                            break
+                    break
+        calculateAmount(bank_id, bank_name,  amount_clean,
+                        name, currency, groupID, groupName)
+        if name:
+            print(f"✅ ==> Name only: {name}")
+        else:
+            print("❌ No name found.")
+    else:
+        print("❌ No valid amount found.")
 
 # ========================= Photo Handler =========================
 
 
-async def calculate(message, context: ContextTypes.DEFAULT_TYPE):
+processed_files = set()
+
+
+async def calculate(message, context: ContextTypes.DEFAULT_TYPE, bank_id, bank_name):
     # === Sender info ===
     sender = message.from_user
     username = sender.username or sender.first_name
     user_id = sender.id
     chat_id = message.chat.id
-
-    # === Chat info ===
-    chat = message.chat
-    chat_type = chat.type  # 'private', 'group', 'supergroup', or 'channel'
-    group_title = chat.title if chat_type in ['group', 'supergroup'] else None
-    group_id = chat.id
+    groupname = message.chat.title
+    bankID = int(bank_id)
 
     # === Get and Save Photo ===
-    photo = message.photo[-1]
+    photo = message.photo[-1]  # Highest resolution
     file = await context.bot.get_file(photo.file_id)
-    filename = f"{photo.file_id}.jpg"
+    filename = f"{photo.file_unique_id}.jpg"
     file_path = os.path.join(SAVE_FOLDER, filename)
     await file.download_to_drive(file_path)
-    print(f"📸 Photo saved to: {file_path}")
+    logger.info(f"📸 Photo saved to: {file_path}")
 
     # === Encode image to base64 ===
     with open(file_path, 'rb') as image_file:
@@ -145,75 +260,32 @@ async def calculate(message, context: ContextTypes.DEFAULT_TYPE):
             "features": [{"type": "TEXT_DETECTION"}]
         }]
     }
-
-    response = requests.post(endpoint_url, headers=headers, json=body)
-    full_text = response.json()['responses'][0].get(
-        'textAnnotations', [{}])[0].get('description', '')
-
-    print("\n🧾 OCR Text:\n", full_text)
-
-    # === Extract Fields ===
-    extracted = extract_fields_by_order(full_text)
-
-    message_text = '\n'.join([f"{key}: {extracted.get(key, 'Not found')}" for key in [
-        "Trx. ID", "From account", "Original amount",
-        "Reference #", "Sender", "To account", "Transaction date"
-    ]])
-    raw_amount = extracted.get("Original amount", "")
-
-    # Remove any currency prefix (USD, usd, U.S.D., etc.) and any commas or extra whitespace
-    amount = re.sub(r'(?i)\bUSD\b[\s:]*', '',
-                    raw_amount).replace(',', '').strip()
-
-    # print(f'Amount: {amount}')
-
-    # Respond to user
-    response_message = f"✅ Extracted Data:\n{message_text}\n\n👤 From: {username}\n💬 Chat type: {chat_type}"
-    if group_title:
-        response_message += f"\n👥 Group: {group_title}"
-
-    # === Reply to User ===
-    await message.reply_text(response_message)
-    # You can call your API here to save data or process further
-    fetch_price_data(amount, chat_id)
-
-# ========================= Fetch Price Data =========================
-
-
-def fetch_price_data(calculate_money, chat_id):
-    url = "http://127.0.0.1:8000/api/calcuate/money/groups"
-    params = {
-        "calculate_money": calculate_money,
-        "group_id": chat_id,
-    }
-
     try:
-        response = requests.post(url, params=params, json={})
+        response = requests.post(endpoint_url, headers=headers, json=body)
         response.raise_for_status()
-        data = response.json()
-        amount = float(data.get("calculate_money", 0.0))
-        count_slips = int(data.get("count_slips", 0))
+        full_text = response.json()['responses'][0].get(
+            'textAnnotations', [{}])[0].get('description', '')
 
-        # Print or return values
-        print("Amount:", amount)
-        print("Count Price:", count_slips)
-
-        return amount, count_slips
+        logger.info(f"🧾 OCR Text:\n{full_text}")
 
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching data: {e}")
-        return None, None, None, None
+        logger.error(f"Error with Google Vision API: {e}")
+        return
 
-# ========================= Main =========================
+    # === Field Extraction ===
+    if bankID == 1:
+        extract_fields_Khmer(full_text, bank_name, bank_id, chat_id, groupname)
+    else:
+        extract_field_thai(full_text, bank_name, bank_id, chat_id, groupname)
 
 
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
-    app.add_handler(CallbackQueryHandler(button_handler))
+    app.add_handler(CallbackQueryHandler(button_handler))  # keep this
 
-    print("🤖 Bot is running... Send a photo!")
+    logger.info("🤖 Bot is running... Send a photo!")
     app.run_polling()
 
 
