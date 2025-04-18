@@ -99,10 +99,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def show_bank_options(update: Update, context: ContextTypes.DEFAULT_TYPE, message):
     # Fetch bank data (cached if available)
     data = fetch_bank_data(update.message.chat.id, context)
-
+    # text = update.message.text.strip()
     # Generate bank options from the fetched data
     BANK_OPTIONS = generate_bank_options(data)
-
+    # if not text.startswith(('create account')):
+    #     print('create account')
+    #     return
     if len(data) > 1:
         # If there are more than 2 items in data, show bank selection buttons
         keyboard = [[InlineKeyboardButton(name, callback_data=code)]
