@@ -11,6 +11,21 @@ import hashlib
 BOT_TOKEN = "7669003420:AAGKhS6k8bTDxzNQR3_6cmnRPSkEgA8Xt0s"
 API_KEY = "AIzaSyAwuW-TTjKqYG7c-BSg_AquN37gv5Ia8OA"
 
+
+def delete_webhook():
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            logger.info("Webhook deleted successfully.")
+        else:
+            logger.warning(f"Failed to delete webhook: {response.text}")
+        return response
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Exception while deleting webhook: {e}")
+        return None
+
+
 # Setup logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -23,6 +38,7 @@ os.makedirs(SAVE_FOLDER, exist_ok=True)
 
 # Function to fetch bank data, only once per session
 def fetch_bank_data(chat_id, context):
+    delete_webhook()
     # Check if the bank data is already fetched and stored in context
     # if 'bank_data' not in context.user_data:
     # print(f'=====> Fetching bank data for Chat ID: {chat_id}')
