@@ -149,21 +149,30 @@ processed_files = set()  # Define this globally at the top of your script
 
 
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    delete_webhook()
     message = update.message
+    if not message.photo:
+        await message.reply_text("❌ No photo found in the message.")
+        return
+
     photo = message.photo[-1]
     file_unique_id = photo.file_unique_id
 
     # === Check if this image has already been processed
     if file_unique_id in processed_files:
         logger.info(f"⚠️ Image already processed: {file_unique_id}")
-        await message.reply_text("⚠️ This Payslips has already been processed.")
+        await message.reply_text("⚠️ This payslip has already been processed.")
         return
 
-    # Otherwise, store info and continue
+    # Otherwise, store file_id and message in user_data
     context.user_data['photo_file_id'] = photo.file_id
     context.user_data['message'] = message
 
-    await show_bank_options(update, context, message)  # Show the buttons
+    # Optional: You can mark this image as processed now OR after full processing
+    processed_files.add(file_unique_id)
+
+    # Continue with your flow
+    await show_bank_options(update, context, message)
 
 
 # Assuming BANK_OPTIONS is the list of tuples (bank_name, bank_id) generated
