@@ -201,18 +201,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         data) if code == bank_code), "Unknown")
 
     # Check for duplicate processing
-    if photo.file_unique_id in processed_files:
-        logger.info(
-            f"⚠️ OCR already extracted for this image: {photo.file_unique_id}")
-        await query.edit_message_text(
-            text="⚠️ This Payslip has already been processed.",
-            parse_mode="Markdown"
-        )
-        return
-    else:
-        processed_files.add(photo.file_unique_id)
+    # if photo.file_unique_id in processed_files:
+    #     logger.info(
+    #         f"⚠️ OCR already extracted for this image: {photo.file_unique_id}")
+    #     await query.edit_message_text(
+    #         text="⚠️ This Payslip has already been processed.",
+    #         parse_mode="Markdown"
+    #     )
+    #     return
+    # else:
+    #     processed_files.add(photo.file_unique_id)
 
-        # Confirm bank selection
+    # Confirm bank selection
     await query.edit_message_text(
         text=f"✅ *{bank_name}*",
         parse_mode="Markdown"
