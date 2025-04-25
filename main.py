@@ -6,11 +6,10 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
 # Configuration
-# BOT_TOKEN = "7669003420:AAGKhS6k8bTDxzNQR3_6cmnRPSkEgA8Xt0s"
-# API_KEY = "AIzaSyAwuW-TTjKqYG7c-BSg_AquN37gv5Ia8OA"
 API_KEY = 'AIzaSyAwuW-TTjKqYG7c-BSg_AquN37gv5Ia8OA'
 TELEGRAM_BOT_TOKEN = '7669003420:AAGKhS6k8bTDxzNQR3_6cmnRPSkEgA8Xt0s'
-BASE_URL = "http://localhost:5000"  # Change to your public URL if hosted
+# Ensure this is your Railway URL
+BASE_URL = "https://systemtelegrambotai-production.up.railway.app"
 SAVE_FOLDER = 'static/images'
 
 # Ensure save folder exists
