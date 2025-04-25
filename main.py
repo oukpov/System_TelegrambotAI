@@ -54,10 +54,12 @@ def information(
     group_name,
     gender,
     underline,
-    no
+    no,
+    image_url1
 
 ):
-
+    # print(
+    #     f'🌐 *************************************** {image_url1} 🌐 ***************************************')
     url = "https://oukpov.store/gtkn_project/public/api/optin3/add/data"
 
     payload = {
@@ -73,7 +75,8 @@ def information(
         "group_name": group_name,
         "gender": gender,
         "underline": underline,
-        "no": no
+        "no": no,
+        "url_1": image_url1
     }
 
     try:
@@ -94,7 +97,7 @@ def labor_Conference(
     account_name,
     account_type,
     account_no,
-
+    image_url2
 ):
     url = "https://oukpov.store/gtkn_project/public/api/add/Labor/conference"
     payload = {
@@ -103,6 +106,7 @@ def labor_Conference(
         "account_name": account_name,
         "account_type": account_type,
         "account_no": account_no,
+        "url_2": image_url2,
 
     }
 
@@ -170,6 +174,8 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await process_images_by_index(context, message, context.user_data['photo_list'])
         context.user_data['photo_list'] = []
 
+# image_url1 = image_url2 = image_url3 = None
+
 
 async def process_images_by_index(context, message, photo_list):
     for index, photo in enumerate(photo_list):
@@ -184,7 +190,19 @@ async def process_images_by_index(context, message, photo_list):
             print(f"✅ Image already exists: {file_path}")
 
         image_url = f"{BASE_URL}/image_option3/{filename}"
-        print(f"🌐 Image URL: {image_url}")
+        # print(f"🌐 Image URL: {image_url}")
+        # match index:
+        #     case 0:
+        #         image_url1 = image_url
+        #     case 1:
+        #         image_url2 = image_url
+        #     case 2:
+        #         image_url3 = image_url
+
+        #     # Print after loop
+        # print(f"🌐 Image URL 1: {image_url1}")
+        # print(f"🌐 Image URL 2: {image_url2}")
+        # print(f"🌐 Image URL 3: {image_url3}")
 
         # Read image and encode to base64
         with open(file_path, 'rb') as image_file:
@@ -214,28 +232,35 @@ async def process_images_by_index(context, message, photo_list):
         match index:
             case 0:
                 label = "Front"
+                image_url1 = image_url
                 if travel_doc_match:
                     passport_no = travel_doc_match.group(0)
-                    print(f'============> No.1 : {passport_no}')
-                    await passort_method(message, full_text, context)
+                    # print(
+                    #     f'============> No.1 : {passport_no}\n🖼image_url1 : {image_url1}')
+                    await passort_method(message, full_text, context, image_url1)
                 else:
                     passport_no = extract_field(
                         r'(?:លេខលិខិតឆ្លងដែន\s*/\s*Passport No\.?|Passport No\.?)[:\s]*([A-Z0-9]+)')
                     print(f'============> No.2 : {passport_no}')
-                    await passort_methodNo(message, full_text, context)
+                    await passort_methodNo(message, full_text, context, image_url1)
             case 1:
                 # label = "Back"
-
-                await labor_conference_Image(message, full_text, context, passport_no)
+                image_url2 = image_url
+                # print(
+                #     f'============> No.2 : {passport_no}\n🖼image_url2 : {image_url2}')
+                await labor_conference_Image(message, full_text, context, passport_no, image_url2)
             case 2:
+                image_url3 = image_url
+                # print(
+                #     f'============> No.3 : {passport_no}\n🖼image_url3 : {image_url3}')
                 # label = "Extra"
-                await calculate(message, context, passport_no)
+                await calculate(message, context, passport_no, image_url3)
             case _:
                 label = f"Image {index + 1}"
         # os.remove(file_path)
 
 
-async def passort_method(message, full_text, context: ContextTypes.DEFAULT_TYPE):
+async def passort_method(message, full_text, context: ContextTypes.DEFAULT_TYPE, image_url1):
     # sender = message.from_user
     chat_id = message.chat.id
     groupname = message.chat.title
@@ -331,11 +356,11 @@ async def passort_method(message, full_text, context: ContextTypes.DEFAULT_TYPE)
 
     information(
         surname, given_name, travel_doc_no, dob, doi, doe,
-        height, place_of_birth, chat_id, groupname, gender, mrz_1 + mrz_2, 1
+        height, place_of_birth, chat_id, groupname, gender, mrz_1 + mrz_2, 1, image_url1
     )
 
 
-async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYPE):
+async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYPE, image_url1):
     chat_id = message.chat.id
     groupname = message.chat.title
     lines = full_text.strip().split('\n')
@@ -394,7 +419,7 @@ async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYP
     # Save or forward data (call your internal method if needed)
     information(
         surname, given_name, passport_no, dob, doi, doe,
-        height, place_of_birth, chat_id, groupname, gender, mrz_1 + mrz_2, 2
+        height, place_of_birth, chat_id, groupname, gender, mrz_1 + mrz_2, 2, image_url1
     )
 
     # response_text = (
@@ -416,7 +441,7 @@ async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYP
     # await context.bot.send_message(chat_id=chat_id, text=response_text)
 
 
-async def calculate(message, context: ContextTypes.DEFAULT_TYPE, passport_no):
+async def calculate(message, context: ContextTypes.DEFAULT_TYPE, passport_no, image_url3):
     # === Sender info ===
     sender = message.from_user
     username = sender.username or sender.first_name
@@ -459,13 +484,13 @@ async def calculate(message, context: ContextTypes.DEFAULT_TYPE, passport_no):
         return
     if 'USD' in full_text or 'KHR' in full_text:
         # print(f'No.1 ====>')
-        extract_fields_Khmer(full_text, chat_id, 1, passport_no)
+        extract_fields_Khmer(full_text, chat_id, 1, passport_no, image_url3)
     else:
         # print(f'No.2 ====>')
-        extract_field_thai(full_text, chat_id, 2, passport_no)
+        extract_field_thai(full_text, chat_id, 2, passport_no, image_url3)
 
 
-def extract_fields_Khmer(text, groupID, bank_id, passport_no):
+def extract_fields_Khmer(text, groupID, bank_id, passport_no, image_url3):
     amount_pattern = r'-?[\d,]+\.\d{2}\s*(KHR|USD)'
     amount_match = re.search(amount_pattern, text)
     named_line_pattern = r'^(?:Transfer to|Received from)\s+(.+)$'
@@ -497,7 +522,7 @@ def extract_fields_Khmer(text, groupID, bank_id, passport_no):
                             break
                     break
         calculateAmount(amount_clean,
-                        name, currency, groupID, bank_id, passport_no)
+                        name, currency, groupID, bank_id, passport_no, image_url3)
         if name:
             print(f"✅ ==> Name only: {name}")
         else:
@@ -506,7 +531,7 @@ def extract_fields_Khmer(text, groupID, bank_id, passport_no):
         print("❌ No valid amount found.")
 
 
-def extract_field_thai(text, groupID, bank_id, passport_no):
+def extract_field_thai(text, groupID, bank_id, passport_no, image_url3):
     matches = re.findall(r'\b\d+\.\d{2}\b', text)
 
     # Convert appropriately
@@ -523,10 +548,10 @@ def extract_field_thai(text, groupID, bank_id, passport_no):
     # print(f'===> Th : {amount}')
     # print(amount)
     calculateAmount(amount,
-                    "None", 'bat', groupID, bank_id, passport_no)
+                    "None", 'bat', groupID, bank_id, passport_no, image_url3)
 
 
-def calculateAmount(amount, name, currency, group_id, bank_id, passport_no):
+def calculateAmount(amount, name, currency, group_id, bank_id, passport_no, image_url3):
     if bank_id == 1:
         url = "calculate/amount/kh/option3"
     else:
@@ -539,8 +564,8 @@ def calculateAmount(amount, name, currency, group_id, bank_id, passport_no):
         "amount": amount,
         "name": name,
         "currency": currency,
-        "group_id": group_id
-        # "group_name": group_name
+        "group_id": group_id,
+        "url_3": image_url3
     }
 
     try:
@@ -562,7 +587,7 @@ def format_date(date_str):
         return date_str
 
 
-async def labor_conference_Image(message, full_text, context: ContextTypes.DEFAULT_TYPE, card_id):
+async def labor_conference_Image(message, full_text, context: ContextTypes.DEFAULT_TYPE, card_id, image_url2):
     sender = message.from_user
     # username = sender.username or sender.first_name
     # user_id = sender.id
@@ -599,7 +624,8 @@ async def labor_conference_Image(message, full_text, context: ContextTypes.DEFAU
     #     f"📄 Account Type: {account_type}\n"
     #     f"🏬 Branch: {branch}"
     # )
-    labor_Conference(card_id, chat_id, name, account_type, account_no)
+    labor_Conference(card_id, chat_id, name,
+                     account_type, account_no, image_url2)
     # await message.reply_text(reply_text)
 
 
