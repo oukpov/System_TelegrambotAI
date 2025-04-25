@@ -13,7 +13,7 @@ import random
 
 BOT_TOKEN = "7669003420:AAGKhS6k8bTDxzNQR3_6cmnRPSkEgA8Xt0s"
 API_KEY = "AIzaSyAwuW-TTjKqYG7c-BSg_AquN37gv5Ia8OA"
-
+BASE_URL = "https://gtkn.up.railway.app"
 # ========================= Logging Setup =========================
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',

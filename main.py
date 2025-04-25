@@ -11,7 +11,7 @@ API_KEY = 'AIzaSyAwuW-TTjKqYG7c-BSg_AquN37gv5Ia8OA'  # Google Vision API Key
 # Your Telegram Bot Token
 TELEGRAM_BOT_TOKEN = '7669003420:AAGKhS6k8bTDxzNQR3_6cmnRPSkEgA8Xt0s'
 BASE_URL = "https://gtkn.up.railway.app"  # Your domain or public URL
-SAVE_FOLDER = 'static/images'
+SAVE_FOLDER = 'images'
 
 # Ensure save folder exists
 os.makedirs(SAVE_FOLDER, exist_ok=True)
@@ -28,39 +28,47 @@ def serve_image(filename):
 
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    photo_list = update.message.photo
-    for index, photo in enumerate(photo_list):
-        file = await context.bot.get_file(photo.file_id)
-        filename = f"{photo.file_unique_id}.jpg"
-        file_path = os.path.join(SAVE_FOLDER, filename)
-        await file.download_to_drive(file_path)
+    # Get the highest resolution photo
+    photo = update.message.photo[-1]  # ✅ Only last image
 
-        # Generate image URL
-        image_url = f"{BASE_URL}/images/{filename}"
-        print(f"Image URL: {image_url}")  # Log the URL for debugging purposes
+    filename = f"{photo.file_unique_id}.jpg"
+    file_path = os.path.join(SAVE_FOLDER, filename)
 
-        # Encode image to base64 for Google Vision API
-        with open(file_path, 'rb') as image_file:
-            content = base64.b64encode(image_file.read()).decode('utf-8')
+    # ✅ Only download if file doesn't already exist
+    if not os.path.exists(file_path):
+        telegram_file = await context.bot.get_file(photo.file_id)
+        await telegram_file.download_to_drive(file_path)
+        print(f"📥 Image downloaded: {file_path}")
+    else:
+        print(f"✅ Image already exists: {file_path}")
 
-        # Send to Vision API
-        response = requests.post(
-            f"https://vision.googleapis.com/v1/images:annotate?key={API_KEY}",
-            headers={'Content-Type': 'application/json'},
-            json={
-                "requests": [{
-                    "image": {"content": content},
-                    "features": [{"type": "TEXT_DETECTION"}]
-                }]
-            }
-        )
+    # Create image URL
+    image_url = f"{BASE_URL}/images/{filename}"
+    print(f"🌐 Image URL: {image_url}")
 
-        result = response.json()
-        text = result['responses'][0].get(
-            'fullTextAnnotation', {}).get('text', 'No text found.')
+    # Encode image for Google Vision
+    with open(file_path, 'rb') as image_file:
+        content = base64.b64encode(image_file.read()).decode('utf-8')
 
-        # Reply to user with image URL and OCR text
-        await update.message.reply_text(f"✅ Image saved:\n{image_url}\n\n📝 OCR Result:\n{text}")
+    # Send to Vision API
+    response = requests.post(
+        f"https://vision.googleapis.com/v1/images:annotate?key={API_KEY}",
+        headers={'Content-Type': 'application/json'},
+        json={
+            "requests": [{
+                "image": {"content": content},
+                "features": [{"type": "TEXT_DETECTION"}]
+            }]
+        }
+    )
+
+    result = response.json()
+    text = result['responses'][0].get(
+        'fullTextAnnotation', {}).get('text', 'No text found.')
+
+    # Send back response
+    await update.message.reply_text(f"✅ Image saved:\n{image_url}\n\n📝 OCR Result:\n{text}")
+
 
 # Telegram bot setup
 

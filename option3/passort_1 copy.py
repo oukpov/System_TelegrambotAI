@@ -205,20 +205,22 @@ async def process_images_by_index(context, message, photo_list):
                 else:
                     passport_no = extract_field(
                         r'(?:លេខលិខិតឆ្លងដែន\s*/\s*Passport No\.?|Passport No\.?)[:\s]*([A-Z0-9]+)')
-                print(f'============> No.2 : {passport_no}')
-                await passort_methodNo(message, full_text, context)
+                    print(f'============> No.2 : {passport_no}')
+                    await passort_methodNo(message, full_text, context)
             case 1:
                 # label = "Back"
+
                 await labor_conference_Image(message, full_text, context, passport_no)
             case 2:
-                label = "Extra"
+                # label = "Extra"
+                await calculate(message, context, passport_no)
             case _:
                 label = f"Image {index + 1}"
         os.remove(file_path)
 
 
 async def passort_method(message, full_text, context: ContextTypes.DEFAULT_TYPE):
-    sender = message.from_user
+    # sender = message.from_user
     chat_id = message.chat.id
     groupname = message.chat.title
 
@@ -321,7 +323,6 @@ async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYP
     chat_id = message.chat.id
     groupname = message.chat.title
     lines = full_text.strip().split('\n')
-    logger.info(f"📜 OCR Text []:\n{full_text}")
 
     def extract_field(pattern, fallback="N/A"):
         match = re.search(pattern, full_text, re.IGNORECASE)
@@ -329,58 +330,213 @@ async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYP
 
     def format_date(date_str):
         try:
-            return datetime.strptime(date_str, "%d %b %Y").strftime("%Y-%m-%d")
+            return datetime.strptime(date_str.strip(), "%d %b %Y").strftime("%Y-%m-%d")
         except Exception:
-            return date_str  # fallback to original if format fails
+            return date_str  # fallback if format fails
 
+    def extract_multiline_date(label_pattern):
+        for i, line in enumerate(lines):
+            if re.search(label_pattern, line, re.IGNORECASE):
+                if i + 1 < len(lines):
+                    possible_date = lines[i + 1].strip()
+                    try:
+                        return format_date(possible_date)
+                    except:
+                        pass
+        return "N/A"
+
+    # Field extractions
     surname = extract_field(
         r'(?:នាមត្រកូល\s*/\s*Sarname|នាមត្រកូល)[:\s\-]*([A-Z ]+)')
     given_name = extract_field(
         r'(?:Sugs/Given names|mugs/Given names|Given names)[:\s\-]*([A-Z ]+)')
-
     passport_no = extract_field(
         r'(?:លេខលិខិតឆ្លងដែន\s*/\s*Passport No\.?|Passport No\.?)[:\s]*([A-Z0-9]+)')
-    nationality = extract_field(r'Nationality[:\s]*([A-Z ]+)')
+    nationality = extract_field(r'(?:សញ្ញាតិ|Nationality)[:\s]*([A-Z ]+)')
 
-    dob_raw = extract_field(r'Date of birth[:\s]*([0-9]{2} \w{3} \d{4})')
-    dob = format_date(dob_raw)
+    dob = extract_multiline_date(r'(?:ថ្ងៃខែឆ្នាំកំណើត|Date of birth)')
+    doi = extract_multiline_date(r'(?:ថ្ងៃចេញ|Date of issue)')
+    doe = extract_multiline_date(r'(?:ផុតកំណត់|Date of expiry)')
+    place_of_birth = extract_field(
+        r'(?:ទីកន្លែងកំណើត|Place of birth)[:\s]*([A-Z ]+)')
 
-    doi_raw = extract_field(r'Date of issue[:\s]*([0-9]{2} \w{3} \d{4})')
-    doi = format_date(doi_raw)
+    gender = extract_field(r'(?:Sex|19/Sex)[\s:/\-]*([MF])')
+    if gender == "N/A":
+        gender = next((line.strip()
+                      for line in lines if line.strip() in ['M', 'F']), "N/A")
 
-    doe_raw = extract_field(r'Date of expiry[:\s]*([0-9]{2} \w{3} \d{4})')
-    doe = format_date(doe_raw)
-
-    place_of_birth = extract_field(r'Place of birth[:\s]*([A-Z ]+)')
-
-    gender = next((line.strip()
-                  for line in lines if line.strip() in ['M', 'F']), "N/A")
     height_match = re.search(r'(\d{2,3})\s?CM', full_text.upper())
     height = height_match.group(1) + " CM" if height_match else "N/A"
 
     mrz_1 = lines[-2] if len(lines) >= 2 else "N/A"
     mrz_2 = lines[-1] if len(lines) >= 1 else "N/A"
 
-    # khmer_name = extract_field(
-    #     r'ឈ្មោះជាភាសាខ្មែរ[:\s]*Name ih Khmer[:\s]*(.*)')
-    # profession = extract_field(r'មុខរបរ[:\s]*Profession[:\s]*(.*)')
+    # Optional Khmer fields
+    # khmer_name = extract_field(r'(?:ឈ្មោះជាភាសាខ្មែរ|Name in Khmer)[:\s]*(.*)')
+    # profession = extract_field(r'(?:មុខរបរ|Profession)[:\s]*(.*)')
+
+    # Save or forward data (call your internal method if needed)
     information(
         surname, given_name, passport_no, dob, doi, doe,
         height, place_of_birth, chat_id, groupname, gender, mrz_1 + mrz_2, 2
     )
-    response_text = (
-        "✅ Done\n"
-        f"🆔 No Card  :  {passport_no}\n"
-        f"👤 Name  :   {surname},{given_name}\n"
-        f"🚻 Gender  :  {gender}\n"
-        f"📏 Height  :  {height}\n"
-        f"🎂 Date of Birth : {dob}\n"
-        f"🗓️ Date of Issue : {doi}\n"
-        f"⌛️ Date of Expiry : {doe}\n"
-        f"📍 Place of Birth : {place_of_birth}\n"
-        f"🛂 MRZ\n{mrz_1}\n{mrz_2}"
-    )
-    await context.bot.send_message(chat_id=chat_id, text=response_text)
+
+    # response_text = (
+    #     "✅ Done\n"
+    #     f"🆔 No Card  :  {passport_no}\n"
+    #     f"👤 Name  :   {surname},{given_name}\n"
+    #     f"🚻 Gender  :  {gender}\n"
+    #     f"📏 Height  :  {height}\n"
+    #     f"🎂 Date of Birth : {dob}\n"
+    #     f"🗓️ Date of Issue : {doi}\n"
+    #     f"⌛️ Date of Expiry : {doe}\n"
+    #     f"📍 Place of Birth : {place_of_birth}\n"
+    #     f"🛂 MRZ\n{mrz_1}\n{mrz_2}"
+    # )
+
+    # if khmer_name != "N/A" or profession != "N/A":
+    #     response_text += f"\n\nឈ្មោះជាភាសាខ្មែរ: {khmer_name}\nមុខរបរ: {profession}"
+
+    # await context.bot.send_message(chat_id=chat_id, text=response_text)
+
+
+async def calculate(message, context: ContextTypes.DEFAULT_TYPE, passport_no):
+    # === Sender info ===
+    sender = message.from_user
+    username = sender.username or sender.first_name
+    user_id = sender.id
+    chat_id = message.chat.id
+    groupname = message.chat.title
+    # bankID = int(bank_id)
+
+    # === Get and Save Photo ===
+    photo = message.photo[-1]  # Highest resolution
+    file = await context.bot.get_file(photo.file_id)
+    filename = f"{photo.file_unique_id}.jpg"
+    file_path = os.path.join(SAVE_FOLDER, filename)
+    await file.download_to_drive(file_path)
+    logger.info(f"📸 Photo saved to: {file_path}")
+
+    # === Encode image to base64 ===
+    with open(file_path, 'rb') as image_file:
+        content = base64.b64encode(image_file.read()).decode('utf-8')
+
+    # === Google Vision API Call ===
+    endpoint_url = f"https://vision.googleapis.com/v1/images:annotate?key={API_KEY}"
+    headers = {'Content-Type': 'application/json'}
+    body = {
+        "requests": [{
+            "image": {"content": content},
+            "features": [{"type": "TEXT_DETECTION"}]
+        }]
+    }
+    try:
+        response = requests.post(endpoint_url, headers=headers, json=body)
+        response.raise_for_status()
+        full_text = response.json()['responses'][0].get(
+            'textAnnotations', [{}])[0].get('description', '')
+
+        logger.info(f"🧾 OCR Text:\n{full_text}")
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error with Google Vision API: {e}")
+        return
+    if 'USD' in full_text or 'KHR' in full_text:
+        # print(f'No.1 ====>')
+        extract_fields_Khmer(full_text, chat_id, 1, passport_no)
+    else:
+        # print(f'No.2 ====>')
+        extract_field_thai(full_text, chat_id, 2, passport_no)
+
+
+def extract_fields_Khmer(text, groupID, bank_id, passport_no):
+    amount_pattern = r'-?[\d,]+\.\d{2}\s*(KHR|USD)'
+    amount_match = re.search(amount_pattern, text)
+    named_line_pattern = r'^(?:Transfer to|Received from)\s+(.+)$'
+
+    # Init
+    name = None
+
+    if amount_match:
+        amount_full = amount_match.group()
+        amount_clean = amount_full.replace(',', '')
+        currency = amount_match.group(1).lower()
+        # print(f"✅ ==> First amount: {amount_clean}")
+        # print(f"✅ ==> Currency: {currency}")
+
+        # Try to find "Transfer to" or "Received from"
+        named_match = re.search(named_line_pattern, text, re.MULTILINE)
+        if named_match:
+            name = named_match.group(1).strip()
+        else:
+            # Fallback: get the line after the amount
+            lines = text.splitlines()
+            for i, line in enumerate(lines):
+                if amount_full in line:
+                    # Check next non-empty line
+                    for j in range(i + 1, len(lines)):
+                        next_line = lines[j].strip()
+                        if next_line:
+                            name = next_line
+                            break
+                    break
+        calculateAmount(amount_clean,
+                        name, currency, groupID, bank_id, passport_no)
+        if name:
+            print(f"✅ ==> Name only: {name}")
+        else:
+            print("❌ No name found.")
+    else:
+        print("❌ No valid amount found.")
+
+
+def extract_field_thai(text, groupID, bank_id, passport_no):
+    matches = re.findall(r'\b\d+\.\d{2}\b', text)
+
+    # Convert appropriately
+
+    def convert_amount(value):
+        num = float(value)
+        if num == 0:
+            return None
+        return int(num) if num.is_integer() else num
+
+    # Get the first valid amount
+    amount = next((convert_amount(m)
+                  for m in matches if convert_amount(m) is not None), None)
+    # print(f'===> Th : {amount}')
+    # print(amount)
+    calculateAmount(amount,
+                    "None", 'bat', groupID, bank_id, passport_no)
+
+
+def calculateAmount(amount, name, currency, group_id, bank_id, passport_no):
+    if bank_id == 1:
+        url = "calculate/amount/kh/option3"
+    else:
+        url = "calculate/amount/th/option3"
+        print(f'======> ({bank_id}) : 2')
+
+    params = {
+        "card_id": passport_no,
+        "bank_id": bank_id,
+        "amount": amount,
+        "name": name,
+        "currency": currency,
+        "group_id": group_id
+        # "group_name": group_name
+    }
+
+    try:
+        response = requests.post(
+            f"https://oukpov.store/gtkn_project/public/api/{url}", params=params, json={})
+        response.raise_for_status()  # Raises HTTPError for bad responses
+        labels_field = response.json()
+        return labels_field  # Return actual data
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching data: {e}")
+        return None
 
 
 def format_date(date_str):
