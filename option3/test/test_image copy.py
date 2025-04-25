@@ -24,6 +24,7 @@ flask_app = Flask(__name__)
 def serve_image(filename):
     return send_from_directory(SAVE_FOLDER, filename)
 
+
 # Telegram photo handler
 
 

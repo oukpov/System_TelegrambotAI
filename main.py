@@ -7,16 +7,14 @@ import logging
 import re
 from datetime import datetime
 from telegram.ext import ContextTypes
+from flask import Flask, send_from_directory, request
 
-# import unicodedata
-# import random
-from flask import Flask, send_from_directory
 # ========================= Configuration =========================
 
 BOT_TOKEN = "7669003420:AAGKhS6k8bTDxzNQR3_6cmnRPSkEgA8Xt0s"
 API_KEY = "AIzaSyAwuW-TTjKqYG7c-BSg_AquN37gv5Ia8OA"
 BASE_URL = "https://gtkn.up.railway.app"
-SAVE_FOLDER = 'images'
+SAVE_FOLDER = 'image_option3'
 # ========================= Logging Setup =========================
 os.makedirs(SAVE_FOLDER, exist_ok=True)
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -27,13 +25,10 @@ logger = logging.getLogger(__name__)
 flask_app = Flask(__name__)
 
 
-@flask_app.route('/images/<filename>')
+@flask_app.route('/image_option3/<filename>')
 def serve_image(filename):
     return send_from_directory(SAVE_FOLDER, filename)
 
-
-SAVE_FOLDER = "images"
-os.makedirs(SAVE_FOLDER, exist_ok=True)
 
 # Track processed images to avoid reprocessing
 processed_files = set()
@@ -184,16 +179,18 @@ async def process_images_by_index(context, message, photo_list):
         if not os.path.exists(file_path):
             telegram_file = await context.bot.get_file(photo.file_id)
             await telegram_file.download_to_drive(file_path)
-            print(f"📥 Image downloaded: {file_path}")
+            print(f"📥 Image downloaded to: {file_path}")
         else:
             print(f"✅ Image already exists: {file_path}")
 
         image_url = f"{BASE_URL}/images/{filename}"
         print(f"🌐 Image URL: {image_url}")
 
+        # Read image and encode to base64
         with open(file_path, 'rb') as image_file:
             content = base64.b64encode(image_file.read()).decode('utf-8')
 
+        # Google Vision OCR
         response = requests.post(
             f"https://vision.googleapis.com/v1/images:annotate?key={API_KEY}",
             headers={'Content-Type': 'application/json'},
@@ -204,18 +201,11 @@ async def process_images_by_index(context, message, photo_list):
                 }]
             }
         )
+
         result = response.json()
         full_text = result['responses'][0].get(
             'fullTextAnnotation', {}).get('text', '')
-        # if response.ok:
-        #     result = response.json()
-        #     print(f"📝 OCR result for image {index}: {result}")
-        # else:
-        #     # print(
-        #     #     f"❌ Failed OCR for image {index}: {response.status_code} - {response.text}")
-        #     result = response.json()
-        #     full_text = result['responses'][0].get(
-        #         'fullTextAnnotation', {}).get('text', '')
+        print(f"📝 OCR result from image {index + 1}:\n{full_text[:200]}...\n")
 
         def extract_field(pattern, fallback="N/A"):
             match = re.search(pattern, full_text, re.IGNORECASE)
@@ -242,7 +232,7 @@ async def process_images_by_index(context, message, photo_list):
                 await calculate(message, context, passport_no)
             case _:
                 label = f"Image {index + 1}"
-        os.remove(file_path)
+        # os.remove(file_path)
 
 
 async def passort_method(message, full_text, context: ContextTypes.DEFAULT_TYPE):
