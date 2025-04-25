@@ -30,7 +30,6 @@ def serve_image(filename):
     return send_from_directory(SAVE_FOLDER, filename)
 
 
-# Track processed images to avoid reprocessing
 processed_files = set()
 
 
@@ -183,7 +182,7 @@ async def process_images_by_index(context, message, photo_list):
         else:
             print(f"✅ Image already exists: {file_path}")
 
-        image_url = f"{BASE_URL}/images/{filename}"
+        image_url = f"{BASE_URL}/image_option3/{filename}"
         print(f"🌐 Image URL: {image_url}")
 
         # Read image and encode to base64
@@ -205,7 +204,7 @@ async def process_images_by_index(context, message, photo_list):
         result = response.json()
         full_text = result['responses'][0].get(
             'fullTextAnnotation', {}).get('text', '')
-        print(f"📝 OCR result from image {index + 1}:\n{full_text[:200]}...\n")
+        # print(f"📝 OCR result from image {index + 1}:\n{full_text[:200]}...\n")
 
         def extract_field(pattern, fallback="N/A"):
             match = re.search(pattern, full_text, re.IGNORECASE)
