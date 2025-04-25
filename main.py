@@ -8,6 +8,7 @@ import re
 from datetime import datetime
 from telegram.ext import ContextTypes
 from flask import Flask, send_from_directory, request
+import threading
 
 # ========================= Configuration =========================
 
@@ -627,4 +628,6 @@ def main():
 
 
 if __name__ == "__main__":
+    threading.Thread(target=lambda: flask_app.run(
+        debug=True, use_reloader=False, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))).start()
     main()
