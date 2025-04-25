@@ -10,7 +10,7 @@ import threading
 API_KEY = 'AIzaSyAwuW-TTjKqYG7c-BSg_AquN37gv5Ia8OA'  # Google Vision API Key
 # Your Telegram Bot Token
 TELEGRAM_BOT_TOKEN = '7669003420:AAGKhS6k8bTDxzNQR3_6cmnRPSkEgA8Xt0s'
-BASE_URL = "https://gtkn.online"  # Your domain or public URL
+BASE_URL = "https://gtkn.up.railway.app"  # Your domain or public URL
 SAVE_FOLDER = 'static/images'
 
 # Ensure save folder exists
