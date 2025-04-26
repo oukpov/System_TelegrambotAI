@@ -55,11 +55,12 @@ def information(
     gender,
     underline,
     no,
-    image_url1
+    image_url1,
+    image_blob
 
 ):
     # print(
-    #     f'🌐 *************************************** {image_url1} 🌐 ***************************************')
+    #     f'🌐 *************************************** {image_blob} 🌐 ***************************************')
     url = "https://oukpov.store/gtkn_project/public/api/optin3/add/data"
 
     payload = {
@@ -76,7 +77,8 @@ def information(
         "gender": gender,
         "underline": underline,
         "no": no,
-        "url_1": image_url1
+        "url_1": image_url1,
+        "image_blob_1": image_blob
     }
 
     try:
@@ -97,7 +99,9 @@ def labor_Conference(
     account_name,
     account_type,
     account_no,
-    image_url2
+    image_url2,
+    image_blob
+
 ):
     url = "https://oukpov.store/gtkn_project/public/api/add/Labor/conference"
     payload = {
@@ -107,6 +111,7 @@ def labor_Conference(
         "account_type": account_type,
         "account_no": account_no,
         "url_2": image_url2,
+        "image_blob_2": image_blob,
 
     }
 
@@ -181,7 +186,7 @@ async def process_images_by_index(context, message, photo_list):
     for index, photo in enumerate(photo_list):
         filename = f"{photo.file_unique_id}.jpg"
         file_path = os.path.join(SAVE_FOLDER, filename)
-
+        # local_image_path = os.path.join(SAVE_FOLDER, filename)
         if not os.path.exists(file_path):
             telegram_file = await context.bot.get_file(photo.file_id)
             await telegram_file.download_to_drive(file_path)
@@ -190,21 +195,12 @@ async def process_images_by_index(context, message, photo_list):
             print(f"✅ Image already exists: {file_path}")
 
         image_url = f"{BASE_URL}/image_option3/{filename}"
-        # print(f"🌐 Image URL: {image_url}")
-        # match index:
-        #     case 0:
-        #         image_url1 = image_url
-        #     case 1:
-        #         image_url2 = image_url
-        #     case 2:
-        #         image_url3 = image_url
+        path_image = f"/image_option3/{filename}"
+        # Convert to blob
+        with open(file_path, 'rb') as f:
+            image_blob = f.read()
+        encoded_image = base64.b64encode(image_blob).decode('utf-8')
 
-        #     # Print after loop
-        # print(f"🌐 Image URL 1: {image_url1}")
-        # print(f"🌐 Image URL 2: {image_url2}")
-        # print(f"🌐 Image URL 3: {image_url3}")
-
-        # Read image and encode to base64
         with open(file_path, 'rb') as image_file:
             content = base64.b64encode(image_file.read()).decode('utf-8')
 
@@ -233,34 +229,37 @@ async def process_images_by_index(context, message, photo_list):
             case 0:
                 label = "Front"
                 image_url1 = image_url
+
                 if travel_doc_match:
                     passport_no = travel_doc_match.group(0)
                     # print(
                     #     f'============> No.1 : {passport_no}\n🖼image_url1 : {image_url1}')
-                    await passort_method(message, full_text, context, image_url1)
+                    await passort_method(message, full_text, context, image_url1, encoded_image)
                 else:
                     passport_no = extract_field(
                         r'(?:លេខលិខិតឆ្លងដែន\s*/\s*Passport No\.?|Passport No\.?)[:\s]*([A-Z0-9]+)')
                     print(f'============> No.2 : {passport_no}')
-                    await passort_methodNo(message, full_text, context, image_url1)
+                    await passort_methodNo(message, full_text, context, image_url1, encoded_image)
             case 1:
                 # label = "Back"
                 image_url2 = image_url
+                print(f"🧬 Image BLOB length: {len(image_blob)} bytes")
                 # print(
                 #     f'============> No.2 : {passport_no}\n🖼image_url2 : {image_url2}')
-                await labor_conference_Image(message, full_text, context, passport_no, image_url2)
+                await labor_conference_Image(message, full_text, context, passport_no, image_url2, encoded_image)
             case 2:
                 image_url3 = image_url
+                print(f"🧬 Image BLOB length: {len(image_blob)} bytes")
                 # print(
                 #     f'============> No.3 : {passport_no}\n🖼image_url3 : {image_url3}')
                 # label = "Extra"
-                await calculate(message, context, passport_no, image_url3)
+                await calculate(message, context, passport_no, image_url3, encoded_image)
             case _:
                 label = f"Image {index + 1}"
         # os.remove(file_path)
 
 
-async def passort_method(message, full_text, context: ContextTypes.DEFAULT_TYPE, image_url1):
+async def passort_method(message, full_text, context: ContextTypes.DEFAULT_TYPE, image_url1, image_blob):
     # sender = message.from_user
     chat_id = message.chat.id
     groupname = message.chat.title
@@ -356,11 +355,12 @@ async def passort_method(message, full_text, context: ContextTypes.DEFAULT_TYPE,
 
     information(
         surname, given_name, travel_doc_no, dob, doi, doe,
-        height, place_of_birth, chat_id, groupname, gender, mrz_1 + mrz_2, 1, image_url1
+        height, place_of_birth, chat_id, groupname, gender, mrz_1 +
+        mrz_2, 1, image_url1, image_blob
     )
 
 
-async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYPE, image_url1):
+async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYPE, image_url1, image_blob):
     chat_id = message.chat.id
     groupname = message.chat.title
     lines = full_text.strip().split('\n')
@@ -419,7 +419,8 @@ async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYP
     # Save or forward data (call your internal method if needed)
     information(
         surname, given_name, passport_no, dob, doi, doe,
-        height, place_of_birth, chat_id, groupname, gender, mrz_1 + mrz_2, 2, image_url1
+        height, place_of_birth, chat_id, groupname, gender, mrz_1 +
+        mrz_2, 2, image_url1, image_blob
     )
 
     # response_text = (
@@ -441,7 +442,7 @@ async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYP
     # await context.bot.send_message(chat_id=chat_id, text=response_text)
 
 
-async def calculate(message, context: ContextTypes.DEFAULT_TYPE, passport_no, image_url3):
+async def calculate(message, context: ContextTypes.DEFAULT_TYPE, passport_no, image_url3, image_blob):
     # === Sender info ===
     sender = message.from_user
     username = sender.username or sender.first_name
@@ -484,13 +485,15 @@ async def calculate(message, context: ContextTypes.DEFAULT_TYPE, passport_no, im
         return
     if 'USD' in full_text or 'KHR' in full_text:
         # print(f'No.1 ====>')
-        extract_fields_Khmer(full_text, chat_id, 1, passport_no, image_url3)
+        extract_fields_Khmer(full_text, chat_id, 1,
+                             passport_no, image_url3, image_blob)
     else:
         # print(f'No.2 ====>')
-        extract_field_thai(full_text, chat_id, 2, passport_no, image_url3)
+        extract_field_thai(full_text, chat_id, 2,
+                           passport_no, image_url3, image_blob)
 
 
-def extract_fields_Khmer(text, groupID, bank_id, passport_no, image_url3):
+def extract_fields_Khmer(text, groupID, bank_id, passport_no, image_url3, image_blob):
     amount_pattern = r'-?[\d,]+\.\d{2}\s*(KHR|USD)'
     amount_match = re.search(amount_pattern, text)
     named_line_pattern = r'^(?:Transfer to|Received from)\s+(.+)$'
@@ -522,7 +525,7 @@ def extract_fields_Khmer(text, groupID, bank_id, passport_no, image_url3):
                             break
                     break
         calculateAmount(amount_clean,
-                        name, currency, groupID, bank_id, passport_no, image_url3)
+                        name, currency, groupID, bank_id, passport_no, image_url3, image_blob)
         if name:
             print(f"✅ ==> Name only: {name}")
         else:
@@ -531,7 +534,7 @@ def extract_fields_Khmer(text, groupID, bank_id, passport_no, image_url3):
         print("❌ No valid amount found.")
 
 
-def extract_field_thai(text, groupID, bank_id, passport_no, image_url3):
+def extract_field_thai(text, groupID, bank_id, passport_no, image_url3, image_blob):
     matches = re.findall(r'\b\d+\.\d{2}\b', text)
 
     # Convert appropriately
@@ -548,15 +551,14 @@ def extract_field_thai(text, groupID, bank_id, passport_no, image_url3):
     # print(f'===> Th : {amount}')
     # print(amount)
     calculateAmount(amount,
-                    "None", 'bat', groupID, bank_id, passport_no, image_url3)
+                    "None", 'bat', groupID, bank_id, passport_no, image_url3, image_blob)
 
 
-def calculateAmount(amount, name, currency, group_id, bank_id, passport_no, image_url3):
+def calculateAmount(amount, name, currency, group_id, bank_id, passport_no, image_url3, image_blob):
     if bank_id == 1:
         url = "calculate/amount/kh/option3"
     else:
         url = "calculate/amount/th/option3"
-        print(f'======> ({bank_id}) : 2')
 
     params = {
         "card_id": passport_no,
@@ -565,14 +567,18 @@ def calculateAmount(amount, name, currency, group_id, bank_id, passport_no, imag
         "name": name,
         "currency": currency,
         "group_id": group_id,
-        "url_3": image_url3
+        "url_3": image_url3,
+        "image_blob_3": image_blob
     }
 
     try:
+        # Use json=data in POST request to send JSON payload
         response = requests.post(
-            f"https://oukpov.store/gtkn_project/public/api/{url}", params=params, json={})
+            f"https://oukpov.store/gtkn_project/public/api/{url}",
+            json=params  # Send data as JSON payload
+        )
         response.raise_for_status()  # Raises HTTPError for bad responses
-        labels_field = response.json()
+        labels_field = response.json()  # Parse JSON response
         return labels_field  # Return actual data
 
     except requests.exceptions.RequestException as e:
@@ -587,7 +593,7 @@ def format_date(date_str):
         return date_str
 
 
-async def labor_conference_Image(message, full_text, context: ContextTypes.DEFAULT_TYPE, card_id, image_url2):
+async def labor_conference_Image(message, full_text, context: ContextTypes.DEFAULT_TYPE, card_id, image_url2, encoded_image):
     sender = message.from_user
     # username = sender.username or sender.first_name
     # user_id = sender.id
@@ -625,7 +631,7 @@ async def labor_conference_Image(message, full_text, context: ContextTypes.DEFAU
     #     f"🏬 Branch: {branch}"
     # )
     labor_Conference(card_id, chat_id, name,
-                     account_type, account_no, image_url2)
+                     account_type, account_no, image_url2, encoded_image)
     # await message.reply_text(reply_text)
 
 
