@@ -9,7 +9,7 @@ from datetime import datetime
 from telegram.ext import ContextTypes
 from flask import Flask, send_from_directory, request
 import threading
-
+from flask_cors import CORS
 # ========================= Configuration =========================
 
 BOT_TOKEN = "7669003420:AAGKhS6k8bTDxzNQR3_6cmnRPSkEgA8Xt0s"
@@ -25,10 +25,17 @@ logger = logging.getLogger(__name__)
 # ========================= Folder Setup =========================
 flask_app = Flask(__name__)
 
+app = Flask(__name__)
+CORS(app)
+# @flask_app.route('/image_option3/<filename>')
+# def serve_image(filename):
+#     return send_from_directory(SAVE_FOLDER, filename)
 
-@flask_app.route('/image_option3/<filename>')
+
+@app.route('/image_option3/<filename>')
 def serve_image(filename):
-    return send_from_directory(SAVE_FOLDER, filename)
+    image_dir = os.path.join(os.getcwd(), 'image_option3')
+    return send_from_directory(image_dir, filename)
 
 
 processed_files = set()
