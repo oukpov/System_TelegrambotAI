@@ -56,7 +56,8 @@ def information(
     underline,
     no,
     image_url1,
-    image_blob
+    image_blob,
+    bot_id
 
 ):
     # print(
@@ -78,7 +79,8 @@ def information(
         "underline": underline,
         "no": no,
         "url_1": image_url1,
-        "image_blob_1": image_blob
+        "image_blob_1": image_blob,
+        "bot_id": bot_id
     }
 
     try:
@@ -153,7 +155,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     delete_webhook()
     message = update.message
-
+    bot_id = context.bot.id
     if not message.photo:
         await message.reply_text("❌ No photo found in the message.")
         return
@@ -176,13 +178,13 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     processed_files.add(file_unique_id)
 
     if len(context.user_data['photo_list']) == 3:
-        await process_images_by_index(context, message, context.user_data['photo_list'])
+        await process_images_by_index(context, message, context.user_data['photo_list'], bot_id)
         context.user_data['photo_list'] = []
 
 # image_url1 = image_url2 = image_url3 = None
 
 
-async def process_images_by_index(context, message, photo_list):
+async def process_images_by_index(context, message, photo_list, bot_id):
     for index, photo in enumerate(photo_list):
         filename = f"{photo.file_unique_id}.jpg"
         file_path = os.path.join(SAVE_FOLDER, filename)
@@ -234,12 +236,12 @@ async def process_images_by_index(context, message, photo_list):
                     passport_no = travel_doc_match.group(0)
                     # print(
                     #     f'============> No.1 : {passport_no}\n🖼image_url1 : {image_url1}')
-                    await passort_method(message, full_text, context, image_url1, encoded_image)
+                    await passort_method(message, full_text, context, image_url1, encoded_image, bot_id)
                 else:
                     passport_no = extract_field(
                         r'(?:លេខលិខិតឆ្លងដែន\s*/\s*Passport No\.?|Passport No\.?)[:\s]*([A-Z0-9]+)')
                     print(f'============> No.2 : {passport_no}')
-                    await passort_methodNo(message, full_text, context, image_url1, encoded_image)
+                    await passort_methodNo(message, full_text, context, image_url1, encoded_image, bot_id)
             case 1:
                 # label = "Back"
                 image_url2 = image_url
@@ -259,7 +261,7 @@ async def process_images_by_index(context, message, photo_list):
         # os.remove(file_path)
 
 
-async def passort_method(message, full_text, context: ContextTypes.DEFAULT_TYPE, image_url1, image_blob):
+async def passort_method(message, full_text, context: ContextTypes.DEFAULT_TYPE, image_url1, image_blob, bot_id):
     # sender = message.from_user
     chat_id = message.chat.id
     groupname = message.chat.title
@@ -356,11 +358,11 @@ async def passort_method(message, full_text, context: ContextTypes.DEFAULT_TYPE,
     information(
         surname, given_name, travel_doc_no, dob, doi, doe,
         height, place_of_birth, chat_id, groupname, gender, mrz_1 +
-        mrz_2, 1, image_url1, image_blob
+        mrz_2, 1, image_url1, image_blob, bot_id
     )
 
 
-async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYPE, image_url1, image_blob):
+async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYPE, image_url1, image_blob, bot_id):
     chat_id = message.chat.id
     groupname = message.chat.title
     lines = full_text.strip().split('\n')
@@ -420,7 +422,7 @@ async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYP
     information(
         surname, given_name, passport_no, dob, doi, doe,
         height, place_of_birth, chat_id, groupname, gender, mrz_1 +
-        mrz_2, 2, image_url1, image_blob
+        mrz_2, 2, image_url1, image_blob, bot_id
     )
 
     # response_text = (
