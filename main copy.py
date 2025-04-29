@@ -41,18 +41,6 @@ def convert_date(date_str):
         return date_str
 
 
-async def checkMethod(card_id):
-    url = f"https://oukpov.store/gtkn_project/public/api/checkPassort?card_id={card_id}"
-    try:
-        response = requests.post(url)
-        response_json = response.json()
-        print(f'============> card_id : {card_id}')
-        return response_json.get("key", False)
-    except Exception as e:
-        print(f"❌ Error checking passport: {e}")
-        return False
-
-
 def information(
     first_name,
     last_name,
@@ -190,12 +178,6 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     processed_files.add(file_unique_id)
 
     if len(context.user_data['photo_list']) == 3:
-        # for index, photo in enumerate(context.user_data['photo_list']):
-        #     if index == 0:
-        #         context.user_data['photo_list']
-        #         # print(f"📸 Photo {index} => {photo.file_unique_id}")
-        #     await process_images_by_index(context, message, context.user_data['photo_list'], bot_id)
-        #     context.user_data['photo_list'] = []
         await process_images_by_index(context, message, context.user_data['photo_list'], bot_id)
         context.user_data['photo_list'] = []
 
@@ -206,29 +188,31 @@ async def process_images_by_index(context, message, photo_list, bot_id):
     for index, photo in enumerate(photo_list):
         filename = f"{photo.file_unique_id}.jpg"
         file_path = os.path.join(SAVE_FOLDER, filename)
-
-        # Download image if it doesn't already exist
-        # if not os.path.exists(file_path):
-        telegram_file = await context.bot.get_file(photo.file_id)
-        await telegram_file.download_to_drive(file_path)
-        # print(f"📥 Image downloaded to: {file_path}")
-        # else:
-        #     print(f"✅ Image already exists: {file_path}")
+        # local_image_path = os.path.join(SAVE_FOLDER, filename)
+        if not os.path.exists(file_path):
+            telegram_file = await context.bot.get_file(photo.file_id)
+            await telegram_file.download_to_drive(file_path)
+            print(f"📥 Image downloaded to: {file_path}")
+        else:
+            print(f"✅ Image already exists: {file_path}")
 
         image_url = f"{BASE_URL}/image_option3/{filename}"
-
-        # Read image as blob and base64-encode
+        path_image = f"/image_option3/{filename}"
+        # Convert to blob
         with open(file_path, 'rb') as f:
             image_blob = f.read()
-            encoded_image = base64.b64encode(image_blob).decode('utf-8')
+        encoded_image = base64.b64encode(image_blob).decode('utf-8')
 
-        # OCR via Google Vision API
+        with open(file_path, 'rb') as image_file:
+            content = base64.b64encode(image_file.read()).decode('utf-8')
+
+        # Google Vision OCR
         response = requests.post(
             f"https://vision.googleapis.com/v1/images:annotate?key={API_KEY}",
             headers={'Content-Type': 'application/json'},
             json={
                 "requests": [{
-                    "image": {"content": encoded_image},
+                    "image": {"content": content},
                     "features": [{"type": "TEXT_DETECTION"}]
                 }]
             }
@@ -237,42 +221,43 @@ async def process_images_by_index(context, message, photo_list, bot_id):
         result = response.json()
         full_text = result['responses'][0].get(
             'fullTextAnnotation', {}).get('text', '')
+        # print(f"📝 OCR result from image {index + 1}:\n{full_text[:200]}...\n")
 
-        # Utility to extract fallback fields
         def extract_field(pattern, fallback="N/A"):
             match = re.search(pattern, full_text, re.IGNORECASE)
             return match.group(1).strip() if match else fallback
-
-        # Try to get travel doc/passport number
         travel_doc_match = re.search(r'T\d{7}', full_text)
+        match index:
+            case 0:
+                label = "Front"
+                image_url1 = image_url
 
-        if index == 0:
-            if travel_doc_match:
-                passport_no = travel_doc_match.group(0)
-            else:
-                passport_no = extract_field(
-                    r'(?:លេខលិខិតឆ្លងដែន\s*/\s*Passport No\.?|Passport No\.?)[:\s]*([A-Z0-9]+)'
-                )
-            check = await checkMethod(passport_no)
-
-        print(f"passport_no : {passport_no} || check => {check}")
-        if check is True:
-            match index:
-                case 0:
-                    if travel_doc_match:
-                        await passort_method(message, full_text, context, image_url, encoded_image, bot_id)
-                    else:
-                        await passort_methodNo(message, full_text, context, image_url, encoded_image, bot_id)
-                case 1:
-                    await labor_conference_Image(message, full_text, context, passport_no, image_url, encoded_image)
-                case 2:
-                    await calculate(message, context, passport_no, image_url, encoded_image)
-                case _:
-                    print(f"ℹ️ Unused image at index {index + 1}")
-        else:
-            match index:
-                case 0:
-                    await message.reply_text(f"⚠️ {passport_no} already exists or is invalid.")
+                if travel_doc_match:
+                    passport_no = travel_doc_match.group(0)
+                    # print(
+                    #     f'============> No.1 : {passport_no}\n🖼image_url1 : {image_url1}')
+                    await passort_method(message, full_text, context, image_url1, encoded_image, bot_id)
+                else:
+                    passport_no = extract_field(
+                        r'(?:លេខលិខិតឆ្លងដែន\s*/\s*Passport No\.?|Passport No\.?)[:\s]*([A-Z0-9]+)')
+                    print(f'============> No.2 : {passport_no}')
+                    await passort_methodNo(message, full_text, context, image_url1, encoded_image, bot_id)
+            case 1:
+                # label = "Back"
+                image_url2 = image_url
+                print(f"🧬 Image BLOB length: {len(image_blob)} bytes")
+                # print(
+                #     f'============> No.2 : {passport_no}\n🖼image_url2 : {image_url2}')
+                await labor_conference_Image(message, full_text, context, passport_no, image_url2, encoded_image)
+            case 2:
+                image_url3 = image_url
+                print(f"🧬 Image BLOB length: {len(image_blob)} bytes")
+                # print(
+                #     f'============> No.3 : {passport_no}\n🖼image_url3 : {image_url3}')
+                # label = "Extra"
+                await calculate(message, context, passport_no, image_url3, encoded_image)
+            case _:
+                label = f"Image {index + 1}"
         # os.remove(file_path)
 
 
@@ -369,7 +354,7 @@ async def passort_method(message, full_text, context: ContextTypes.DEFAULT_TYPE,
 
     mrz_1 = lines[-2] if len(lines) >= 2 else "N/A"
     mrz_2 = lines[-1] if len(lines) >= 1 else "N/A"
-    # check = checkMethod()
+
     information(
         surname, given_name, travel_doc_no, dob, doi, doe,
         height, place_of_birth, chat_id, groupname, gender, mrz_1 +
