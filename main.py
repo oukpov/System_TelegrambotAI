@@ -207,7 +207,7 @@ async def process_images_by_index(context, message, photo_list, bot_id):
         filename = f"{photo.file_unique_id}.jpg"
         file_path = os.path.join(SAVE_FOLDER, filename)
 
-        # Download image if it doesn't already exist
+        # Download image if it doesn't already exists
         # if not os.path.exists(file_path):
         telegram_file = await context.bot.get_file(photo.file_id)
         await telegram_file.download_to_drive(file_path)
