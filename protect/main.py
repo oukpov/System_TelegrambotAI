@@ -44,8 +44,7 @@ def listBankDropdown():
             json=params  # Send data as JSON payload
         )
         response.raise_for_status()  # Raises HTTPError for bad responses
-        data = response.json()
-        print(f'==========================>{data}')  # Parse JSON response
+        data = response.json()  # Parse JSON response
         return data  # Return actual data
 
     except requests.exceptions.RequestException as e:
@@ -199,64 +198,50 @@ def delete_webhook():
 # ========================= Command: /start =========================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    # Send button only once or if needed
-    # BANK_OPTIONS = listBankDropdown()
-    # keyboard = [[InlineKeyboardButton(name, callback_data=code)]
-    #             for name, code in BANK_OPTIONS]
-    # reply_markup = InlineKeyboardMarkup(keyboard)
-
-    # await update.message.reply_text(
-    #     "*Please choose a BANK*",
-    #     reply_markup=reply_markup,
-    #     parse_mode="Markdown"
-    # )
-    return
+    await update.message.reply_text("👋 Please send a photo (Payslip) to continue.")
 
 
 # ========================= Handler: Photo Upload =========================
 
 
-def generate_bank_options(data):
-    if not data:  # Handle empty or None data
-        logger.error("No data available to generate bank options.")
-        return []
-    # Convert the fetched data into the required format for BANK_OPTIONS
-    bank_options = [(item['bank_name'], str(item['bank_name']))
-                    for item in data]
-    logger.info(f"Generated bank options: {bank_options}")
-    return bank_options
-
-
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     delete_webhook()
-    data1 = listBankDropdown()
-    BANK_OPTIONS = generate_bank_options(data1)
     message = update.message
     bot_id = context.bot.id
-    photo = message.photo[-1]
-    file_unique_id = photo.file_unique_id
-    print(f'===> {BANK_OPTIONS}')
-    # if file_unique_id in processed_files:
-    #     # await message.reply_text("⚠️ This image has already been uploaded.")
-    #     return
+
+    if not message.photo:
+        await message.reply_text("❌ No photo found in the message.")
+        return
+
     if 'photo_list' not in context.user_data:
         context.user_data['photo_list'] = []
+
+    if len(context.user_data['photo_list']) >= 3:
+        await message.reply_text("⚠️ You can only upload up to 3 images.")
+        return
+
+    photo = message.photo[-1]
+    file_unique_id = photo.file_unique_id
+
+    if file_unique_id in processed_files:
+        await message.reply_text("⚠️ This image has already been uploaded.")
+        return
 
     context.user_data['photo_list'].append(photo)
     processed_files.add(file_unique_id)
     # checkBank
     # ⬇️ ONLY RUN ON FIRST IMAGE
-    # if len(context.user_data['photo_list']) == 3:
-    #     BANK_OPTIONS = listBankDropdown()
-    #     keyboard = [[InlineKeyboardButton(name, callback_data=code)]
-    #                 for name, code in BANK_OPTIONS]
-    #     reply_markup = InlineKeyboardMarkup(keyboard)
-    #     await update.message.reply_text(
-    #         "*Please choose a BANK*",
-    #         reply_markup=reply_markup,
-    #         parse_mode="Markdown"
-    #     )
+    if len(context.user_data['photo_list']) == 1:
+        BANK_OPTIONS = listBankDropdown()
+        keyboard = [[InlineKeyboardButton(name, callback_data=code)]
+                    for name, code in BANK_OPTIONS]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        await update.message.reply_text(
+            "*Please choose a BANK*",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
 
     # ⬇️ Handle Member and Bank info (only once)
     if 'MEMBER_INFO' not in context.user_data:
@@ -284,14 +269,14 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if len(context.user_data['photo_list']) == 3:
-        await process_images_by_index(context, message, context.user_data['photo_list'], bot_id, update, BANK_OPTIONS)
+        await process_images_by_index(context, message, context.user_data['photo_list'], bot_id)
         context.user_data['photo_list'] = []
 
 
 # image_url1 = image_url2 = image_url3 = None
 
 
-async def process_images_by_index(context, message, photo_list, bot_id, update: Update, BANK_OPTIONS):
+async def process_images_by_index(context, message, photo_list, bot_id):
     for index, photo in enumerate(photo_list):
         filename = f"{photo.file_unique_id}.jpg"
         file_path = os.path.join(SAVE_FOLDER, filename)
@@ -354,20 +339,10 @@ async def process_images_by_index(context, message, photo_list, bot_id, update: 
                         await passort_methodNo(message, full_text, context, image_url, encoded_image, bot_id)
                 case 1:
                     await labor_conference_Image(message, full_text, context, passport_no, image_url, encoded_image)
-                case 2:
-                    # if len(context.user_data['photo_list']) == 3:
-                    # BANK_OPTIONS = listBankDropdown()
-                    keyboard = [[InlineKeyboardButton(name, callback_data=code)]
-                                for name, code in BANK_OPTIONS]
-                    reply_markup = InlineKeyboardMarkup(keyboard)
-                    await update.message.reply_text(
-                        "*Please choose a BANK*",
-                        reply_markup=reply_markup,
-                        parse_mode="Markdown"
-                    )
-        #     await calculate(message, context, passport_no, image_url, encoded_image)
-        # case _:
-        #     print(f"ℹ️ Unused image at index {index + 1}")
+                # case 2:
+                #     await calculate(message, context, passport_no, image_url, encoded_image)
+                # case _:
+                #     print(f"ℹ️ Unused image at index {index + 1}")
         else:
             match index:
                 case 0:
@@ -736,25 +711,15 @@ async def labor_conference_Image(message, full_text, context: ContextTypes.DEFAU
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    if 'message' not in context.user_data or not context.user_data['message'].photo:
+        await query.message.reply_text("❗ No image found to process.")
+        return
 
-    bank_code = query.data
-    context.user_data['selected_bank'] = bank_code
+    message = context.user_data['message']
+    await passort_method(message, context)
 
-    await query.edit_message_text(
-        f"✅ You selected bank: *{bank_code}*",
-        parse_mode="Markdown"
-    )
-    # query = update.callback_query
-    # await query.answer()
-    # if 'message' not in context.user_data or not context.user_data['message'].photo:
-    #     await query.message.reply_text("❗ No image found to process.")
-    #     return
 
-    # message = context.user_data['message']
-    # await passort_method(message, context)
-
-    # ========================= Main Entry =========================
-
+# ========================= Main Entry =========================
 
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
