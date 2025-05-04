@@ -296,22 +296,15 @@ async def process_images_by_index(context, message, photo_list, bot_id, update: 
         filename = f"{photo.file_unique_id}.jpg"
         file_path = os.path.join(SAVE_FOLDER, filename)
 
-        # Download image if it doesn't already exists
-        # if not os.path.exists(file_path):
         telegram_file = await context.bot.get_file(photo.file_id)
         await telegram_file.download_to_drive(file_path)
-        # print(f"📥 Image downloaded to: {file_path}")
-        # else:
-        #     print(f"✅ Image already exists: {file_path}")
 
         image_url = f"{BASE_URL}/image_option3/{filename}"
 
-        # Read image as blob and base64-encode
         with open(file_path, 'rb') as f:
             image_blob = f.read()
             encoded_image = base64.b64encode(image_blob).decode('utf-8')
 
-        # OCR via Google Vision API
         response = requests.post(
             f"https://vision.googleapis.com/v1/images:annotate?key={API_KEY}",
             headers={'Content-Type': 'application/json'},
@@ -327,24 +320,20 @@ async def process_images_by_index(context, message, photo_list, bot_id, update: 
         full_text = result['responses'][0].get(
             'fullTextAnnotation', {}).get('text', '')
 
-        # Utility to extract fallback fields
         def extract_field(pattern, fallback="N/A"):
             match = re.search(pattern, full_text, re.IGNORECASE)
             return match.group(1).strip() if match else fallback
 
-        # Try to get travel doc/passport number
         travel_doc_match = re.search(r'T\d{7}', full_text)
 
         if index == 0:
-            if travel_doc_match:
-                passport_no = travel_doc_match.group(0)
-            else:
-                passport_no = extract_field(
-                    r'(?:លេខលិខិតឆ្លងដែន\s*/\s*Passport No\.?|Passport No\.?)[:\s]*([A-Z0-9]+)'
-                )
+            passport_no = travel_doc_match.group(0) if travel_doc_match else extract_field(
+                r'(?:លេខលិខិតឆ្លងដែន\s*/\s*Passport No\.?|Passport No\.?)[:\s]*([A-Z0-9]+)'
+            )
             check = await checkMethod(passport_no)
 
         print(f"passport_no : {passport_no} || check => {check}")
+
         if check is True:
             match index:
                 case 0:
@@ -355,24 +344,54 @@ async def process_images_by_index(context, message, photo_list, bot_id, update: 
                 case 1:
                     await labor_conference_Image(message, full_text, context, passport_no, image_url, encoded_image)
                 case 2:
-                    # if len(context.user_data['photo_list']) == 3:
-                    # BANK_OPTIONS = listBankDropdown()
+                    # Save required data to context for button handler
+                    context.user_data['chat_id'] = passport_no
+                    context.user_data['passport_no'] = passport_no
+                    context.user_data['image_url'] = image_url
+                    context.user_data['encoded_image'] = encoded_image
+                    context.user_data['bot_message'] = message
+
                     keyboard = [[InlineKeyboardButton(name, callback_data=code)]
                                 for name, code in BANK_OPTIONS]
                     reply_markup = InlineKeyboardMarkup(keyboard)
-                    await update.message.reply_text(
+
+                    await message.reply_text(
                         "*Please choose a BANK*",
                         reply_markup=reply_markup,
                         parse_mode="Markdown"
                     )
-        #     await calculate(message, context, passport_no, image_url, encoded_image)
-        # case _:
-        #     print(f"ℹ️ Unused image at index {index + 1}")
         else:
-            match index:
-                case 0:
-                    await message.reply_text(f"⚠️ {passport_no} already exists or is invalid.")
+            if index == 0:
+                await message.reply_text(f"⚠️ {passport_no} already exists or is invalid.")
+
         # os.remove(file_path)
+
+
+async def bank_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    # messages = update.message
+    # bot_id = context.bot.id
+    bank_code = query.data
+    context.user_data['selected_bank'] = bank_code
+    passport_no = context.user_data.get('passport_no')
+    image_url = context.user_data.get('image_url')
+    encoded_image = context.user_data.get('encoded_image')
+    message = context.user_data.get('bot_message')  # Saved from earlier
+
+    await query.edit_message_text(
+        f"✅ You selected bank: *{bank_code}*",
+        parse_mode="Markdown"
+    )
+    # print(f'==> passport_no : {passport_no}')
+    # print(f'==> image_url : {image_url}')
+    # print(f'==> encoded_image : {encoded_image}')
+    # print(f'==> from_user : {message.from_user}')
+    # print(f'==> bank_code : {bank_code}')
+    # print(f'==> bot_id : {bot_id}')
+    # print(f'==> messages : {messages.}')
+    await calculate(message, context, passport_no,
+                    image_url, encoded_image, bank_code)
 
 
 async def passort_method(message, full_text, context: ContextTypes.DEFAULT_TYPE, image_url1, image_blob, bot_id):
@@ -540,15 +559,16 @@ async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYP
     )
 
 
-async def calculate(message, context: ContextTypes.DEFAULT_TYPE, passport_no, image_url3, image_blob):
+async def calculate(message, context: ContextTypes.DEFAULT_TYPE, passport_no, image_url3, image_blob, reply_markup):
     # === Sender info ===
-    sender = message.from_user
-    username = sender.username or sender.first_name
-    user_id = sender.id
-    chat_id = message.chat.id
-    groupname = message.chat.title
-    # bankID = int(bank_id)
 
+    # sender = message.from_user
+    # username = sender.username or sender.first_name
+    # user_id = sender.id
+    chat_id = message.chat.id
+    # groupname = message.chat.title
+    # bankID = int(bank_id)
+    print(f'chat_id => {chat_id}')
     # === Get and Save Photo ===
     photo = message.photo[-1]  # Highest resolution
     file = await context.bot.get_file(photo.file_id)
@@ -584,14 +604,14 @@ async def calculate(message, context: ContextTypes.DEFAULT_TYPE, passport_no, im
     if 'USD' in full_text or 'KHR' in full_text:
         # print(f'No.1 ====>')
         extract_fields_Khmer(full_text, chat_id, 1,
-                             passport_no, image_url3, image_blob)
+                             passport_no, image_url3, image_blob, reply_markup)
     else:
         # print(f'No.2 ====>')
         extract_field_thai(full_text, chat_id, 2,
-                           passport_no, image_url3, image_blob)
+                           passport_no, image_url3, image_blob, reply_markup)
 
 
-def extract_fields_Khmer(text, groupID, bank_id, passport_no, image_url3, image_blob):
+def extract_fields_Khmer(text, groupID, bank_id, passport_no, image_url3, image_blob, reply_markup):
     amount_pattern = r'-?[\d,]+\.\d{2}\s*(KHR|USD)'
     amount_match = re.search(amount_pattern, text)
     named_line_pattern = r'^(?:Transfer to|Received from)\s+(.+)$'
@@ -623,7 +643,7 @@ def extract_fields_Khmer(text, groupID, bank_id, passport_no, image_url3, image_
                             break
                     break
         calculateAmount(amount_clean,
-                        name, currency, groupID, bank_id, passport_no, image_url3, image_blob)
+                        name, currency, groupID, bank_id, passport_no, image_url3, image_blob, reply_markup)
         if name:
             print(f"✅ ==> Name only: {name}")
         else:
@@ -632,7 +652,7 @@ def extract_fields_Khmer(text, groupID, bank_id, passport_no, image_url3, image_
         print("❌ No valid amount found.")
 
 
-def extract_field_thai(text, groupID, bank_id, passport_no, image_url3, image_blob):
+def extract_field_thai(text, groupID, bank_id, passport_no, image_url3, image_blob, reply_markup):
     matches = re.findall(r'\b\d+\.\d{2}\b', text)
 
     # Convert appropriately
@@ -649,10 +669,10 @@ def extract_field_thai(text, groupID, bank_id, passport_no, image_url3, image_bl
     # print(f'===> Th : {amount}')
     # print(amount)
     calculateAmount(amount,
-                    "None", 'bat', groupID, bank_id, passport_no, image_url3, image_blob)
+                    "None", 'bat', groupID, bank_id, passport_no, image_url3, image_blob, reply_markup)
 
 
-def calculateAmount(amount, name, currency, group_id, bank_id, passport_no, image_url3, image_blob):
+def calculateAmount(amount, name, currency, group_id, bank_id, passport_no, image_url3, image_blob, reply_markup):
     if bank_id == 1:
         url = "calculate/amount/kh/option3"
     else:
@@ -662,7 +682,7 @@ def calculateAmount(amount, name, currency, group_id, bank_id, passport_no, imag
         "card_id": passport_no,
         "bank_id": bank_id,
         "amount": amount,
-        "name": name,
+        "name": reply_markup,
         "currency": currency,
         "group_id": group_id,
         "url_3": image_url3,
@@ -734,16 +754,17 @@ async def labor_conference_Image(message, full_text, context: ContextTypes.DEFAU
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+    # query = update.callback_query
+    # await query.answer()
 
-    bank_code = query.data
-    context.user_data['selected_bank'] = bank_code
+    # bank_code = query.data
+    # context.user_data['selected_bank'] = bank_code
 
-    await query.edit_message_text(
-        f"✅ You selected bank: *{bank_code}*",
-        parse_mode="Markdown"
-    )
+    # await query.edit_message_text(
+    #     f"✅ You selected bank: *{bank_code}*",
+    #     parse_mode="Markdown"
+    # )
+    return
     # query = update.callback_query
     # await query.answer()
     # if 'message' not in context.user_data or not context.user_data['message'].photo:
@@ -759,6 +780,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(bank_button_handler))
     app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
     # Optional if using buttons
     app.add_handler(CallbackQueryHandler(button_handler))
