@@ -34,9 +34,8 @@ def serve_image(filename):
 processed_files = set()
 
 
-def listBankDropdown(chat_id):
+def listBankDropdown():
     params = {
-        "group_id": chat_id
     }
     try:
         # Use json=data in POST request to send JSON payload
@@ -231,13 +230,11 @@ def generate_bank_options(data):
 
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     delete_webhook()
-
+    data1 = listBankDropdown()
+    BANK_OPTIONS = generate_bank_options(data1)
     message = update.message
-    chat_id = update.message.chat.id
     bot_id = context.bot.id
     photo = message.photo[-1]
-    data1 = listBankDropdown(chat_id)
-    BANK_OPTIONS = generate_bank_options(data1)
     file_unique_id = photo.file_unique_id
     print(f'===> {BANK_OPTIONS}')
     # if file_unique_id in processed_files:
@@ -656,10 +653,7 @@ def extract_fields_Khmer(text, groupID, bank_id, passport_no, image_url3, image_
 
 
 def extract_field_thai(text, groupID, bank_id, passport_no, image_url3, image_blob, reply_markup):
-    normalized_text = re.sub(r'(?<=\d),(?=\d{3}\b)', '', text)
-
-    # Find all decimal numbers
-    matches = re.findall(r'\b\d+\.\d{2}\b', normalized_text)
+    matches = re.findall(r'\b\d+\.\d{2}\b', text)
 
     # Convert appropriately
 
