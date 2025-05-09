@@ -46,7 +46,7 @@ def listBankDropdown(chat_id):
         )
         response.raise_for_status()  # Raises HTTPError for bad responses
         data = response.json()
-        print(f'==========================>{data}')  # Parse JSON response
+        # print(f'==========================>{data}')
         return data  # Return actual data
 
     except requests.exceptions.RequestException as e:
@@ -56,7 +56,8 @@ def listBankDropdown(chat_id):
 
 
 def checkMember(chat_id, groupName, botID, context):
-
+    print(
+        f'chat_id  : {chat_id}\ngroupName  : {groupName}\nbotID  : {botID}\n')
     url = f"https://oukpov.store/gtkn_project/public/api/check/members?group_id={chat_id}&group_name={groupName}&bot_id={botID}"
     try:
         response = requests.post(url)
@@ -65,7 +66,7 @@ def checkMember(chat_id, groupName, botID, context):
             data = response.json()
             context.user_data['member'] = data
             context.user_data['bank_id'] = data
-            print(f'==========================>{data}')
+            # print(f'==========================>{data}')
             return data
         else:
             logger.error(
@@ -88,7 +89,7 @@ async def checkMethod(card_id):
     try:
         response = requests.post(url)
         response_json = response.json()
-        print(f'============> card_id : {card_id}')
+        # print(f'============> card_id : {card_id}')
         return response_json.get("key", False)
     except Exception as e:
         print(f"❌ Error checking passport: {e}")
@@ -140,7 +141,7 @@ def information(
     try:
         response = requests.post(url, json=payload)
         response.raise_for_status()
-        print("✅ Success:", response.json())
+        print("✅ No.1 Successfuly : ", response.json())
         return response.json()
     except requests.exceptions.RequestException as e:
         print("❌ Request failed:", e)
@@ -174,7 +175,7 @@ def labor_Conference(
     try:
         response = requests.post(url, json=payload)
         response.raise_for_status()
-        print("✅ Success:", response.json())
+        print("✅ No.2 : Successfuly", response.json())
         return response.json()
     except requests.exceptions.RequestException as e:
         print("❌ Request failed:", e)
@@ -239,7 +240,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data1 = listBankDropdown(chat_id)
     BANK_OPTIONS = generate_bank_options(data1)
     file_unique_id = photo.file_unique_id
-    print(f'===> {BANK_OPTIONS}')
+    # print(f'===> {BANK_OPTIONS}')
     # if file_unique_id in processed_files:
     #     # await message.reply_text("⚠️ This image has already been uploaded.")
     #     return
@@ -277,7 +278,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bank_name = member_info.get("bank_name", "N/A")
     option_bank = int(member_info.get("option_bank", 0))
 
-    print(f"====> Member ID : {bank_id} && Bank ID : {bank_name}")
+    # print(f"====> Member ID : {bank_id} && Bank ID : {bank_name}")
 
     if member_status == 1:
         await message.reply_text("*👤 Welcome New Member ✅*", parse_mode="Markdown")
@@ -571,7 +572,7 @@ async def calculate(message, context: ContextTypes.DEFAULT_TYPE, passport_no, im
     chat_id = message.chat.id
     # groupname = message.chat.title
     # bankID = int(bank_id)
-    print(f'chat_id => {chat_id}')
+    # print(f'chat_id => {chat_id}')
     # === Get and Save Photo ===
     photo = message.photo[-1]  # Highest resolution
     file = await context.bot.get_file(photo.file_id)
@@ -743,9 +744,9 @@ async def labor_conference_Image(message, full_text, context: ContextTypes.DEFAU
         0).strip() if account_type_match else "❓ Not found"
 
     # 4. Extract Branch (สาขา...)
-    branch_match = re.search(r'สาขา[^\n\r]+', text)
-    branch = branch_match.group(
-        0).strip() if branch_match else "❓ Not found"
+    # branch_match = re.search(r'สาขา[^\n\r]+', text)
+    # branch = branch_match.group(
+    #     0).strip() if branch_match else "❓ Not found"
 
     # === Reply back with extracted fields ===
     # reply_text = (
@@ -759,7 +760,7 @@ async def labor_conference_Image(message, full_text, context: ContextTypes.DEFAU
     # await message.reply_text(reply_text)
 
 
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # query = update.callback_query
     # await query.answer()
 
@@ -770,7 +771,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     #     f"✅ You selected bank: *{bank_code}*",
     #     parse_mode="Markdown"
     # )
-    return
+    # return
     # query = update.callback_query
     # await query.answer()
     # if 'message' not in context.user_data or not context.user_data['message'].photo:
@@ -789,7 +790,7 @@ def main():
     app.add_handler(CallbackQueryHandler(bank_button_handler))
     app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
     # Optional if using buttons
-    app.add_handler(CallbackQueryHandler(button_handler))
+    # app.add_handler(CallbackQueryHandler(button_handler))
 
     logger.info("🤖 Bot is running... Send a photo!")
     app.run_polling()
