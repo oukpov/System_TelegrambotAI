@@ -10,7 +10,6 @@ from telegram.ext import ContextTypes
 from flask import Flask, send_from_directory, request
 import threading
 
-# ========================= Configuration =========================
 
 BOT_TOKEN = "7669003420:AAGKhS6k8bTDxzNQR3_6cmnRPSkEgA8Xt0s"
 API_KEY = "AIzaSyAwuW-TTjKqYG7c-BSg_AquN37gv5Ia8OA"
@@ -36,7 +35,7 @@ processed_files = set()
 
 def listBankDropdown(chat_id):
     params = {
-        "group_id": chat_id
+        "group_id": str(chat_id)
     }
     try:
         # Use json=data in POST request to send JSON payload
@@ -46,7 +45,7 @@ def listBankDropdown(chat_id):
         )
         response.raise_for_status()  # Raises HTTPError for bad responses
         data = response.json()
-        # print(f'==========================>{data}')
+        print(f'listBankDropdown => {data}')
         return data  # Return actual data
 
     except requests.exceptions.RequestException as e:
@@ -66,7 +65,7 @@ def checkMember(chat_id, groupName, botID, context):
             data = response.json()
             context.user_data['member'] = data
             context.user_data['bank_id'] = data
-            # print(f'==========================>{data}')
+            print(f'==> checkMember : {data}')
             return data
         else:
             logger.error(
@@ -115,8 +114,7 @@ def information(
     bot_id
 
 ):
-    # print(
-    #     f'🌐 *************************************** {image_blob} 🌐 ***************************************')
+    print(f'=======> 🌎 group_id : {group_id} & bot_id : {bot_id}')
     url = "https://oukpov.store/gtkn_project/public/api/optin3/add/data"
 
     payload = {
@@ -128,7 +126,7 @@ def information(
         "date_of_expirey": date_of_expirey,
         "hieght": hieght,
         "place_of_birth": place_of_birth,
-        "group_id": group_id,
+        "group_id": str(group_id),
         "group_name": group_name,
         "gender": gender,
         "underline": underline,
@@ -160,15 +158,17 @@ def labor_Conference(
     image_blob
 
 ):
+
     url = "https://oukpov.store/gtkn_project/public/api/add/Labor/conference"
     payload = {
         "card_ID": code_id,
-        "group_id": group_id,
+        "group_id": str(group_id),
         "account_name": account_name,
         "account_type": account_type,
         "account_no": account_no,
         "url_2": image_url2,
         "image_blob_2": image_blob,
+
 
     }
 
@@ -197,25 +197,6 @@ def delete_webhook():
         logger.error(f"Exception while deleting webhook: {e}")
         return None
 
-
-# ========================= Command: /start =========================
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    # Send button only once or if needed
-    # BANK_OPTIONS = listBankDropdown()
-    # keyboard = [[InlineKeyboardButton(name, callback_data=code)]
-    #             for name, code in BANK_OPTIONS]
-    # reply_markup = InlineKeyboardMarkup(keyboard)
-
-    # await update.message.reply_text(
-    #     "*Please choose a BANK*",
-    #     reply_markup=reply_markup,
-    #     parse_mode="Markdown"
-    # )
-    return
-
-
 # ========================= Handler: Photo Upload =========================
 
 
@@ -232,70 +213,67 @@ def generate_bank_options(data):
 
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     delete_webhook()
-
     message = update.message
-    chat_id = update.message.chat.id
+    chat_id = message.chat.id
     bot_id = context.bot.id
-    photo = message.photo[-1]
-    data1 = listBankDropdown(chat_id)
-    BANK_OPTIONS = generate_bank_options(data1)
-    file_unique_id = photo.file_unique_id
-    # print(f'===> {BANK_OPTIONS}')
-    # if file_unique_id in processed_files:
-    #     # await message.reply_text("⚠️ This image has already been uploaded.")
-    #     return
+    print(f'===> 🆔 : {chat_id}')
+
     if 'photo_list' not in context.user_data:
         context.user_data['photo_list'] = []
-
-    context.user_data['photo_list'].append(photo)
-    processed_files.add(file_unique_id)
-    # checkBank
-    # ⬇️ ONLY RUN ON FIRST IMAGE
-    # if len(context.user_data['photo_list']) == 3:
-    #     BANK_OPTIONS = listBankDropdown()
-    #     keyboard = [[InlineKeyboardButton(name, callback_data=code)]
-    #                 for name, code in BANK_OPTIONS]
-    #     reply_markup = InlineKeyboardMarkup(keyboard)
-    #     await update.message.reply_text(
-    #         "*Please choose a BANK*",
-    #         reply_markup=reply_markup,
-    #         parse_mode="Markdown"
-    #     )
-
-    # ⬇️ Handle Member and Bank info (only once)
-    if 'MEMBER_INFO' not in context.user_data:
-        MEMBER = checkMember(update.message.chat.id,
-                             update.message.chat.title, context.bot.id, context)
-        if not MEMBER:
-            print('❌ Error: No data from checkMember')
-            return
-
-        context.user_data['MEMBER_INFO'] = MEMBER[0]  # Save it
-
-    member_info = context.user_data['MEMBER_INFO']
-    member_status = int(member_info.get("member", 0))
-    bank_id = int(member_info.get("bank_id", 0))
-    bank_name = member_info.get("bank_name", "N/A")
-    option_bank = int(member_info.get("option_bank", 0))
-
-    # print(f"====> Member ID : {bank_id} && Bank ID : {bank_name}")
-
-    if member_status == 1:
-        await message.reply_text("*👤 Welcome New Member ✅*", parse_mode="Markdown")
-        return
-    elif option_bank == 1:
-        await message.reply_text("*⚠️ Please wait for Admin approval*", parse_mode="Markdown")
-        return
-
-    if len(context.user_data['photo_list']) == 3:
-        await process_images_by_index(context, message, context.user_data['photo_list'], bot_id, update, BANK_OPTIONS)
+    elif len(context.user_data['photo_list']) >= 3:
         context.user_data['photo_list'] = []
 
+    photo = message.photo[-1]
+    context.user_data['photo_list'].append(photo)
+    num_photos = len(context.user_data['photo_list'])
+    option_bank = None
+    BANK_OPTIONS = []
+    # === Case 1 photo ===
+    if num_photos == 1:
+        # print('===> ✅ No.1 ***********')
+        MEMBER = checkMember(chat_id, message.chat.title, bot_id, context)
+        if not MEMBER:
+            print('❌ Error: No data from checkMember')
+            await message.reply_text("❌ Error retrieving member info.")
+            return
+        context.user_data['MEMBER_INFO'] = MEMBER[0]
+        member_status = int(MEMBER[0].get("member", 0))
+        option_bank = int(MEMBER[0].get("option_bank", 0))
 
-# image_url1 = image_url2 = image_url3 = None
+        if member_status == 1:
+            await message.reply_text("*👤 Welcome New Member ✅*\n  Please wait for Admin approval", parse_mode="Markdown")
+            return
+        elif option_bank == 1:
+            await message.reply_text("*⚠️ Please wait for Admin approval*", parse_mode="Markdown")
+            return
+    # === Case 3 photos ===
+    elif num_photos == 3:
+        # print('===> ✅ No.2 ***********')
+        MEMBER = context.user_data.get("MEMBER_INFO")
+        if MEMBER:
+            option_bank = int(MEMBER.get("option_bank", 0))
+
+        if option_bank == 0:
+            data1 = listBankDropdown(chat_id)
+            BANK_OPTIONS = generate_bank_options(data1)
+
+    # === Case 3 photos and process them ===
+
+    MEMBER = context.user_data.get("MEMBER_INFO")
+    if MEMBER:
+        option_bank = int(MEMBER.get("option_bank", 0))
+
+    if len(context.user_data['photo_list']) == 3 and option_bank == 0:
+        # if len(context.user_data['photo_list']) == 3:
+        # print(f'===> ✅ No.{num_photos}')
+        await process_images_by_index(
+            context, message, context.user_data['photo_list'], bot_id,
+            update, BANK_OPTIONS, chat_id
+        )
+        # context.user_data['photo_list'] = []
 
 
-async def process_images_by_index(context, message, photo_list, bot_id, update: Update, BANK_OPTIONS):
+async def process_images_by_index(context, message, photo_list, bot_id, update: Update, BANK_OPTIONS, chat_id):
     for index, photo in enumerate(photo_list):
         filename = f"{photo.file_unique_id}.jpg"
         file_path = os.path.join(SAVE_FOLDER, filename)
@@ -341,19 +319,23 @@ async def process_images_by_index(context, message, photo_list, bot_id, update: 
         if check is True:
             match index:
                 case 0:
+                    print(f'===> ✅ No.{index} ✅')
                     if travel_doc_match:
-                        await passort_method(message, full_text, context, image_url, encoded_image, bot_id)
+                        await passort_method(message, full_text, context, image_url, encoded_image, bot_id, chat_id)
                     else:
-                        await passort_methodNo(message, full_text, context, image_url, encoded_image, bot_id)
+                        await passort_methodNo(message, full_text, context, image_url, encoded_image, bot_id, chat_id)
                 case 1:
-                    await labor_conference_Image(message, full_text, context, passport_no, image_url, encoded_image)
+                    print(f'===> ✅ No.{index} ✅')
+                    await labor_conference_Image(message, full_text, context, passport_no, image_url, encoded_image, chat_id)
                 case 2:
+                    print(f'===> ✅ No.{index} ✅')
                     # Save required data to context for button handler
                     context.user_data['chat_id'] = passport_no
                     context.user_data['passport_no'] = passport_no
                     context.user_data['image_url'] = image_url
                     context.user_data['encoded_image'] = encoded_image
                     context.user_data['bot_message'] = message
+                    context.user_data['group_id'] = chat_id
 
                     keyboard = [[InlineKeyboardButton(name, callback_data=code)]
                                 for name, code in BANK_OPTIONS]
@@ -367,24 +349,21 @@ async def process_images_by_index(context, message, photo_list, bot_id, update: 
         else:
             if index == 0:
                 await message.reply_text(f"⚠️ {passport_no} already exists or is invalid.")
-
         # os.remove(file_path)
 
 
 async def bank_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    # messages = update.message
-    # bot_id = context.bot.id
     bank_code = query.data
     context.user_data['selected_bank'] = bank_code
     passport_no = context.user_data.get('passport_no')
     image_url = context.user_data.get('image_url')
     encoded_image = context.user_data.get('encoded_image')
     message = context.user_data.get('bot_message')  # Saved from earlier
-
+    chat_id = context.user_data.get('group_id')
     await query.edit_message_text(
-        f"✅ You selected bank: *{bank_code}*",
+        f"✅ You selected bank : *{bank_code}*",
         parse_mode="Markdown"
     )
     # print(f'==> passport_no : {passport_no}')
@@ -395,12 +374,12 @@ async def bank_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     # print(f'==> bot_id : {bot_id}')
     # print(f'==> messages : {messages.}')
     await calculate(message, context, passport_no,
-                    image_url, encoded_image, bank_code)
+                    image_url, encoded_image, bank_code, chat_id)
 
 
-async def passort_method(message, full_text, context: ContextTypes.DEFAULT_TYPE, image_url1, image_blob, bot_id):
+async def passort_method(message, full_text, context: ContextTypes.DEFAULT_TYPE, image_url1, image_blob, bot_id, chat_id):
     # sender = message.from_user
-    chat_id = message.chat.id
+
     groupname = message.chat.title
 
     lines = full_text.strip().split('\n')
@@ -499,8 +478,8 @@ async def passort_method(message, full_text, context: ContextTypes.DEFAULT_TYPE,
     )
 
 
-async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYPE, image_url1, image_blob, bot_id):
-    chat_id = message.chat.id
+async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYPE, image_url1, image_blob, bot_id, chat_id):
+
     groupname = message.chat.title
     lines = full_text.strip().split('\n')
 
@@ -563,13 +542,13 @@ async def passort_methodNo(message, full_text, context: ContextTypes.DEFAULT_TYP
     )
 
 
-async def calculate(message, context: ContextTypes.DEFAULT_TYPE, passport_no, image_url3, image_blob, reply_markup):
+async def calculate(message, context: ContextTypes.DEFAULT_TYPE, passport_no, image_url3, image_blob, reply_markup, chat_id):
     # === Sender info ===
 
     # sender = message.from_user
     # username = sender.username or sender.first_name
     # user_id = sender.id
-    chat_id = message.chat.id
+    # chat_id = message.chat.id
     # groupname = message.chat.title
     # bankID = int(bank_id)
     # print(f'chat_id => {chat_id}')
@@ -684,14 +663,13 @@ def calculateAmount(amount, name, currency, group_id, bank_id, passport_no, imag
         url = "calculate/amount/kh/option3"
     else:
         url = "calculate/amount/th/option3"
-
     params = {
         "card_id": passport_no,
         "bank_id": bank_id,
         "amount": amount,
         "name": reply_markup,
         "currency": currency,
-        "group_id": group_id,
+        "group_id":  str(group_id),
         "url_3": image_url3,
         "image_blob_3": image_blob
     }
@@ -718,11 +696,11 @@ def format_date(date_str):
         return date_str
 
 
-async def labor_conference_Image(message, full_text, context: ContextTypes.DEFAULT_TYPE, card_id, image_url2, encoded_image):
-    sender = message.from_user
+async def labor_conference_Image(message, full_text, context: ContextTypes.DEFAULT_TYPE, card_id, image_url2, encoded_image, chat_id):
+    # sender = message.from_user
     # username = sender.username or sender.first_name
     # user_id = sender.id
-    chat_id = message.chat.id
+    # chat_id = message.chat.id
 
     logger.info(f"🧾 OCR Text:\n{full_text}")
     # await message.reply_text(f"🧾 Extracted Text:\n{full_text}")
@@ -760,37 +738,11 @@ async def labor_conference_Image(message, full_text, context: ContextTypes.DEFAU
     # await message.reply_text(reply_text)
 
 
-# async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # query = update.callback_query
-    # await query.answer()
-
-    # bank_code = query.data
-    # context.user_data['selected_bank'] = bank_code
-
-    # await query.edit_message_text(
-    #     f"✅ You selected bank: *{bank_code}*",
-    #     parse_mode="Markdown"
-    # )
-    # return
-    # query = update.callback_query
-    # await query.answer()
-    # if 'message' not in context.user_data or not context.user_data['message'].photo:
-    #     await query.message.reply_text("❗ No image found to process.")
-    #     return
-
-    # message = context.user_data['message']
-    # await passort_method(message, context)
-
-    # ========================= Main Entry =========================
-
-
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
+    # app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(bank_button_handler))
     app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
-    # Optional if using buttons
-    # app.add_handler(CallbackQueryHandler(button_handler))
 
     logger.info("🤖 Bot is running... Send a photo!")
     app.run_polling()
